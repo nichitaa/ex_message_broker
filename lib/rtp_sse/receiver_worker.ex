@@ -5,13 +5,13 @@ defmodule RTP_SSE.ReceiverWorker do
   ## Client API
 
   def start_link(opts) do
-    Logger.info("[ReceiverWorker] start_link")
     state = parse_opts(opts)
+    Logger.info("[ReceiverWorker] start_link - satate #{inspect(state)}")
     GenServer.start_link(__MODULE__, state, opts)
   end
 
   def init(state) do
-    {socket, _} = state
+    {socket, _, _} = state
     Logger.info("[ReceiverWorker] init socket #{inspect(socket)}")
 
     # will invoke handle_info(:start_receiver_worker)
@@ -22,21 +22,21 @@ defmodule RTP_SSE.ReceiverWorker do
   def parse_opts(opts) do
     socket = opts[:socket]
     url = opts[:url]
-    {socket, url}
+    routerPID = opts[:routerPID]
+    {socket, url, routerPID}
   end
 
   ## Private
 
-  defp loop_receive(socket) do
+  defp loop_receive(socket, routerPID) do
     receive do
       tweet ->
         msg = parse_tweet(tweet.data)
 
-        if msg != nil do
-          RTP_SSE.Server.notify(socket, msg)
-        end
+        GenServer.cast(routerPID, {:route, msg})
+        # RTP_SSE.Server.notify(socket, msg)
 
-        loop_receive(socket)
+        loop_receive(socket, routerPID)
     end
   end
 
@@ -52,9 +52,9 @@ defmodule RTP_SSE.ReceiverWorker do
   ## Callbacks
 
   def handle_info(:start_receiver_worker, state) do
-    {socket, url} = state
+    {socket, url, routerPID} = state
     EventsourceEx.new(url, stream_to: self())
-    loop_receive(socket)
+    loop_receive(socket, routerPID)
     {:noreply, state}
   end
 end

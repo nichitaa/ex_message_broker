@@ -13,6 +13,8 @@ defmodule RTP_SSE do
     Logger.info("[Application] start")
 
     children = [
+      {DynamicSupervisor, name: RTP_SSE.LoggerWorkerDynamicSupervisor, strategy: :one_for_one},
+      {DynamicSupervisor, name: RTP_SSE.LoggerRouterDynamicSupervisor, strategy: :one_for_one},
       # Dynamic supervisor for the ReceiverWorker (handles sse for subscribers)
       {DynamicSupervisor, name: RTP_SSE.ReceiverWorkerDynamicSupervisor, strategy: :one_for_one},
       # Server
