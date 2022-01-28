@@ -19,6 +19,8 @@ defmodule RTP_SSE.MixProject do
   end
 
   defp deps do
-    []
+    [
+      {:eventsource_ex, "~> 0.0.2"}
+    ]
   end
 end

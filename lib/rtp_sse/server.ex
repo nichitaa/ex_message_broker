@@ -14,8 +14,8 @@ defmodule RTP_SSE.Server do
     loop_acceptor(socket)
   end
 
-  def notify_subscriber(socket, {:notify, _msg}) do
-    :gen_tcp.send(socket, "got a msg from twitter \r\n")
+  def notify(socket, _msg) do
+    :gen_tcp.send(socket, "twitter msg - my socket #{inspect(socket)} \r\n")
   end
 
   ## Server Private

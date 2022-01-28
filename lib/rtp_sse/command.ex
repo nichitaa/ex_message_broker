@@ -13,6 +13,11 @@ defmodule RTP_SSE.Command do
   def run({:twitter}, socket) do
     Logger.info("[Command] run :twitter - socket - #{inspect(socket)}")
 
+    DynamicSupervisor.start_child(
+      RTP_SSE.ReceiverWorkerDynamicSupervisor,
+      {RTP_SSE.ReceiverWorker, socket: socket, url: "http://localhost:4000/tweets/2"}
+    )
+
     {:ok, "[Command] run :twitter\r\n"}
   end
 end
