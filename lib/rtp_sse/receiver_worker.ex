@@ -2,6 +2,8 @@ defmodule RTP_SSE.ReceiverWorker do
   use GenServer
   require Logger
 
+  ## Client API
+
   def start_link(opts) do
     Logger.info("[ReceiverWorker] start_link")
     state = parse_opts(opts)
@@ -23,13 +25,31 @@ defmodule RTP_SSE.ReceiverWorker do
     {socket, url}
   end
 
+  ## Private
+
   defp loop_receive(socket) do
     receive do
       tweet ->
-        RTP_SSE.Server.notify(socket, tweet)
+        msg = parse_tweet(tweet.data)
+
+        if msg != nil do
+          RTP_SSE.Server.notify(socket, msg)
+        end
+
         loop_receive(socket)
     end
   end
+
+  defp parse_tweet(data) do
+    if data == "{\"message\": panic}" do
+      "[ReceiverWorker] ########################### GOT PANIC MESSAGE ###########################"
+    else
+      {:ok, json} = Poison.decode(data)
+      json["message"]["tweet"]["text"]
+    end
+  end
+
+  ## Callbacks
 
   def handle_info(:start_receiver_worker, state) do
     {socket, url} = state

@@ -1,7 +1,7 @@
 defmodule RTP_SSE.Server do
   require Logger
 
-  ## Client
+  ## Client API
 
   def accept(port) do
     {:ok, socket} =
@@ -14,11 +14,11 @@ defmodule RTP_SSE.Server do
     loop_acceptor(socket)
   end
 
-  def notify(socket, _msg) do
-    :gen_tcp.send(socket, "twitter msg - my socket #{inspect(socket)} \r\n")
+  def notify(socket, msg) do
+    :gen_tcp.send(socket, msg <> "\r\n")
   end
 
-  ## Server Private
+  ## Private
 
   defp loop_acceptor(socket) do
     {:ok, client} = :gen_tcp.accept(socket)

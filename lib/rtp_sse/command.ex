@@ -1,6 +1,8 @@
 defmodule RTP_SSE.Command do
   require Logger
 
+  ## Client API
+
   def parse(line) do
     case String.trim(line, "\r\n") do
       "twitter" -> {:ok, {:twitter}}
