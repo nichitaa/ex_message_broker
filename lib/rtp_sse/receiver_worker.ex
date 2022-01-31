@@ -40,6 +40,7 @@ defmodule RTP_SSE.ReceiverWorker do
     end
   end
 
+  # TODO: this validation must be on the worker level (LoggerWorker)
   defp parse_tweet(data) do
     if data == "{\"message\": panic}" do
       "[ReceiverWorker] ########################### GOT PANIC MESSAGE ###########################"

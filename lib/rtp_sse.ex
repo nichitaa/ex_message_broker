@@ -2,7 +2,7 @@ defmodule RTP_SSE do
   @moduledoc """
   iex -S mix
   :observer.start()
-  
+
   telnet localhost 8080
   """
   use Application
@@ -13,7 +13,9 @@ defmodule RTP_SSE do
     Logger.info("[Application] start")
 
     children = [
+      # Each LoggerRouter will dynamically start some LoggerWorkers
       {DynamicSupervisor, name: RTP_SSE.LoggerWorkerDynamicSupervisor, strategy: :one_for_one},
+      # Each client connection will start a LoggerRouter process
       {DynamicSupervisor, name: RTP_SSE.LoggerRouterDynamicSupervisor, strategy: :one_for_one},
       # Dynamic supervisor for the ReceiverWorker (handles sse for subscribers)
       {DynamicSupervisor, name: RTP_SSE.ReceiverWorkerDynamicSupervisor, strategy: :one_for_one},
