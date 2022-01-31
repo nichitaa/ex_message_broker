@@ -2,7 +2,7 @@ defmodule RTP_SSE do
   @moduledoc """
   iex -S mix
   :observer.start()
-
+  
   telnet localhost 8080
   """
   use Application
