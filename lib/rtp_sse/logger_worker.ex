@@ -24,7 +24,8 @@ defmodule RTP_SSE.LoggerWorker do
 
   defp parse_tweet(data) do
     if data == "{\"message\": panic}" do
-      "[ReceiverWorker] ########################### GOT PANIC MESSAGE ###########################"
+      # kill the worker by raising an error
+      raise("################ PANIC :( ################")
     else
       {:ok, json} = Poison.decode(data)
       json["message"]["tweet"]["text"]

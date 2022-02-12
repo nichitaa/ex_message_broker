@@ -37,10 +37,16 @@ defmodule RTP_SSE.LoggerRouter do
 
   @impl true
   def handle_cast({:route, tweet_data}, state) do
-    Enum.at(state.children, rem(state.index, length(state.children)))
-    # get the second element (pid) from the tuple {:ok, pid}
-    |> elem(1)
-    |> GenServer.cast({:log_tweet, tweet_data})
+    logger_workers = DynamicSupervisor.which_children(RTP_SSE.LoggerWorkerDynamicSupervisor)
+
+    # Just in case we are spammed with multiple panic messages in a very small timeframe
+    # and our dynamic supervisor does not succeed to start new workers in time
+    # ! Was tested and seems like there are allways some workers in the list
+    if length(logger_workers) > 0 do
+      Enum.at(logger_workers, rem(state.index, length(logger_workers)))
+      |> elem(1)
+      |> GenServer.cast({:log_tweet, tweet_data})
+    end
 
     {:noreply, %{index: state.index + 1, children: state.children}}
   end

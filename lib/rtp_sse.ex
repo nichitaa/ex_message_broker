@@ -14,7 +14,11 @@ defmodule RTP_SSE do
 
     children = [
       # Each LoggerRouter will dynamically start some LoggerWorkers
-      {DynamicSupervisor, name: RTP_SSE.LoggerWorkerDynamicSupervisor, strategy: :one_for_one},
+      # max_restarts: defaults to 3, meaning if in 5 seconds our dynamic supervisor will restart 3 child workers
+      # then it will not start more child processes, in our use case the we have a lot of panic messages that
+      # just constantly kills our workers !!
+      {DynamicSupervisor,
+       name: RTP_SSE.LoggerWorkerDynamicSupervisor, strategy: :one_for_one, max_restarts: 100},
       # Each client connection will start a LoggerRouter process
       {DynamicSupervisor, name: RTP_SSE.LoggerRouterDynamicSupervisor, strategy: :one_for_one},
       # Dynamic supervisor for the ReceiverWorker (handles sse for subscribers)
