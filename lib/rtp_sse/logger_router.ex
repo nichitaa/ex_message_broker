@@ -36,11 +36,11 @@ defmodule RTP_SSE.LoggerRouter do
   end
 
   @impl true
-  def handle_cast({:route, msg}, state) do
+  def handle_cast({:route, tweet_data}, state) do
     Enum.at(state.children, rem(state.index, length(state.children)))
     # get the second element (pid) from the tuple {:ok, pid}
     |> elem(1)
-    |> GenServer.cast({:log_tweet, msg})
+    |> GenServer.cast({:log_tweet, tweet_data})
 
     {:noreply, %{index: state.index + 1, children: state.children}}
   end

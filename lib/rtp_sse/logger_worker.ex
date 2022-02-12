@@ -15,9 +15,20 @@ defmodule RTP_SSE.LoggerWorker do
     GenServer.cast(__MODULE__, {:log_tweet, msg})
   end
 
+  # Privates
+
   defp parse_opts(opts) do
     socket = opts[:socket]
     {socket}
+  end
+
+  defp parse_tweet(data) do
+    if data == "{\"message\": panic}" do
+      "[ReceiverWorker] ########################### GOT PANIC MESSAGE ###########################"
+    else
+      {:ok, json} = Poison.decode(data)
+      json["message"]["tweet"]["text"]
+    end
   end
 
   ## Callbacks
@@ -28,13 +39,9 @@ defmodule RTP_SSE.LoggerWorker do
   end
 
   @impl true
-  def handle_cast({:log_tweet, msg}, state) do
+  def handle_cast({:log_tweet, tweet_data}, state) do
     {socket} = state
-
-    # Logger.info(
-    #   "[LoggerWorker] handle :log_tweet, msg - #{inspect(msg)} socket - #{inspect(socket)}"
-    # )
-
+    msg = parse_tweet(tweet_data)
     :gen_tcp.send(socket, msg)
     {:noreply, state}
   end

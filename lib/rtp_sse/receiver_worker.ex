@@ -31,22 +31,8 @@ defmodule RTP_SSE.ReceiverWorker do
   defp loop_receive(socket, routerPID) do
     receive do
       tweet ->
-        msg = parse_tweet(tweet.data)
-
-        GenServer.cast(routerPID, {:route, msg})
-        # RTP_SSE.Server.notify(socket, msg)
-
+        GenServer.cast(routerPID, {:route, tweet.data})
         loop_receive(socket, routerPID)
-    end
-  end
-
-  # TODO: this validation must be on the worker level (LoggerWorker)
-  defp parse_tweet(data) do
-    if data == "{\"message\": panic}" do
-      "[ReceiverWorker] ########################### GOT PANIC MESSAGE ###########################"
-    else
-      {:ok, json} = Poison.decode(data)
-      json["message"]["tweet"]["text"]
     end
   end
 
