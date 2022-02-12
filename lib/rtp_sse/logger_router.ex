@@ -18,7 +18,7 @@ defmodule RTP_SSE.LoggerRouter do
       )
     ]
 
-    GenServer.start_link(__MODULE__, %{index: 0, children: children})
+    GenServer.start_link(__MODULE__, %{index: 0, children: children, socket: socket})
   end
 
   ## Private
@@ -36,6 +36,12 @@ defmodule RTP_SSE.LoggerRouter do
   end
 
   @impl true
+  def handle_call({:is_router_for_socket, socket}, _from, state) do
+    match = state.socket == socket
+    {:reply, match, state}
+  end
+
+  @impl true
   def handle_cast({:route, tweet_data}, state) do
     logger_workers = DynamicSupervisor.which_children(RTP_SSE.LoggerWorkerDynamicSupervisor)
 
@@ -48,6 +54,6 @@ defmodule RTP_SSE.LoggerRouter do
       |> GenServer.cast({:log_tweet, tweet_data})
     end
 
-    {:noreply, %{index: state.index + 1, children: state.children}}
+    {:noreply, %{index: state.index + 1, children: state.children, socket: state.socket}}
   end
 end
