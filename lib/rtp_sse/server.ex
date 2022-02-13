@@ -1,4 +1,10 @@
 defmodule RTP_SSE.Server do
+  @moduledoc """
+  A simple `TCP` server [docs](https://elixir-lang.org/getting-started/mix-otp/task-and-gen-tcp.html).
+  It accepts connections on given port (8080 in my case) and spawns
+  other processes (under Task.Supervisor `RTP_SSE.Server.TaskSupervisor`) that servers the requests (`commands`)
+  """
+
   require Logger
 
   ## Client API
@@ -10,18 +16,15 @@ defmodule RTP_SSE.Server do
         [:binary, packet: :line, active: false, reuseaddr: true]
       )
 
-    Logger.info("Accepting connections on port #{port}")
+    Logger.info("[Server] Accepting connections on PORT=#{port}")
     loop_acceptor(socket)
-  end
-
-  def notify(socket, msg) do
-    :gen_tcp.send(socket, msg <> "\r\n")
   end
 
   ## Private
 
   defp loop_acceptor(socket) do
     {:ok, client} = :gen_tcp.accept(socket)
+    Logger.info("[Server] New client SOCKET=#{inspect(socket)}")
 
     {:ok, pid} =
       Task.Supervisor.start_child(RTP_SSE.Server.TaskSupervisor, fn -> serve(client) end)

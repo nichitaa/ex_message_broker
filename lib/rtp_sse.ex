@@ -1,24 +1,37 @@
 defmodule RTP_SSE do
-  @moduledoc """
-  iex -S mix
-  :observer.start()
-
-  telnet localhost 8080
+  @moduledoc ~S"""
+  ### Compile the project and start a new `iex` session inside it
+  
+      > iex -S mix
+  
+  ### Start the builtin observer tool to inspect processes
+  
+      iex> :observer.start
+  
+  ### Connect via telnet client to the :gen_tcp server
+  
+      > telnet localhost 8080
+  
+  ### See the SSEs (tweets) with `twitter` command
+  
+      > `twitter`
   """
   use Application
   require Logger
 
   @impl true
   def start(_type, _args) do
-    Logger.info("[Application] start")
+    Logger.info("[Application] Start")
 
     children = [
       # Each LoggerRouter will dynamically start some LoggerWorkers
       # max_restarts: defaults to 3, meaning if in 5 seconds our dynamic supervisor will restart 3 child workers
       # then it will not start more child processes, in our use case the we have a lot of panic messages that
       # just constantly kills our workers !!
-      {DynamicSupervisor,
-       name: RTP_SSE.LoggerWorkerDynamicSupervisor, strategy: :one_for_one, max_restarts: 100},
+      {
+        DynamicSupervisor,
+        name: RTP_SSE.LoggerWorkerDynamicSupervisor, strategy: :one_for_one, max_restarts: 100
+      },
       # Each client connection will start a LoggerRouter process
       {DynamicSupervisor, name: RTP_SSE.LoggerRouterDynamicSupervisor, strategy: :one_for_one},
       # Dynamic supervisor for the ReceiverWorker (handles sse for subscribers)
