@@ -47,7 +47,7 @@ $ telnet localhost 8080
 twitter
 ```
 
-### **Supervisor diagram ** `v1.1`
+### **Supervisor diagram** `v1.1`
 
 ![supervisor](./../assets/supervisor_diagram.png)
 
