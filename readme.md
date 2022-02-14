@@ -4,10 +4,6 @@
 >
 > Real-Time Programming in `Elixir`
 
-
-
-![v1-diagram](./assets/v1.png)
-
 ### **References**
 
 *  https://elixir-lang.org/getting-started/mix-otp/task-and-gen-tcp.html

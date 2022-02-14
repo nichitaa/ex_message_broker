@@ -29,18 +29,23 @@ The actual workers that are parsing the tweet data and if a `panic` message is r
 
 ```bash
 # Compile the project and start a new `iex` session inside it
-> iex -S mix 
+$ iex -S mix
+```
+
+```elixir
 # Start the builtin observer tool
-iex> :observer.start
+iex(1)> :observer.start()
 ```
 
 ```bash
 # Connect via telnet (any other client) to the server
-> telnet localhost 8080
+$ telnet localhost 8080
+```
+
+```bash
 # run the twitter command
 twitter
 ```
-
 
 ### **Supervisor diagram ** `v1.1`
 
