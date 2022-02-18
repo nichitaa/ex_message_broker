@@ -34,7 +34,7 @@ defmodule RTP_SSE.LoggerWorker do
       raise("################ PANIC :( ################")
     else
       {:ok, json} = Poison.decode(data)
-      json["message"]["tweet"]["text"]
+      "tweet: " <> " " <> json["message"]["tweet"]["text"] <> "\r\n"
     end
   end
 

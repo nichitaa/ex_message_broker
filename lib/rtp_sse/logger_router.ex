@@ -3,7 +3,7 @@ defmodule RTP_SSE.LoggerRouter do
   Starts several LoggerWorkers (workers) under the `RTP_SSE.LoggerWorkerDynamicSupervisor`,
   so in case a worker dies because of the panic message it will start new one.
   
-  It keeps the workers (`children`), counter (`index`), and socket into the state so that
+  It keeps the counter (`index`), and socket into the state so that
   it can delegate the tweet for a specific worker in a round robin circular order
   """
 
@@ -14,7 +14,7 @@ defmodule RTP_SSE.LoggerRouter do
     {socket} = parse_opts(opts)
 
     # start 2 LoggerWorkers passing the socket
-    children =
+    logger_workers =
       Enum.map(
         0..1,
         fn x ->
@@ -29,10 +29,10 @@ defmodule RTP_SSE.LoggerRouter do
       )
 
     Logger.info(
-      "[LoggerRouter] start_link SOCKET=#{inspect(socket)} children=#{inspect(children)}"
+      "[LoggerRouter] start_link SOCKET=#{inspect(socket)} logger_workers=#{inspect(logger_workers)}"
     )
 
-    GenServer.start_link(__MODULE__, %{index: 0, children: children, socket: socket})
+    GenServer.start_link(__MODULE__, %{index: 0, socket: socket})
   end
 
   ## Private
@@ -82,6 +82,6 @@ defmodule RTP_SSE.LoggerRouter do
       |> GenServer.cast({:log_tweet, tweet_data})
     end
 
-    {:noreply, %{index: state.index + 1, children: state.children, socket: state.socket}}
+    {:noreply, %{index: state.index + 1, socket: state.socket}}
   end
 end
