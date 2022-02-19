@@ -36,8 +36,6 @@ defmodule RTP_SSE.Command do
   LoggerRouter that internally supervises and spins up the LoggerWorkers (workers).
   """
   def run({:twitter}, socket) do
-    Logger.info("[Command] :twitter for SOCKET=#{inspect(socket)}")
-
     # get all active LoggerRouters
     logger_routers = DynamicSupervisor.which_children(RTP_SSE.LoggerRouterDynamicSupervisor)
 

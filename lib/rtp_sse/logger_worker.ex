@@ -55,8 +55,9 @@ defmodule RTP_SSE.LoggerWorker do
       GenServer.cast(state.routerPID, {:terminate_logger_worker, self()})
     else
       :gen_tcp.send(state.socket, msg)
+      RTP_SSE.HashtagsWorker.process_hashtags(tweet_data)
+      Process.sleep(Enum.random(50..500))
     end
-
     {:noreply, state}
   end
 

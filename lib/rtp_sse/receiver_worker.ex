@@ -67,7 +67,7 @@ defmodule RTP_SSE.ReceiverWorker do
   """
   @impl true
   def handle_info(:start_receiver_worker, state) do
-    Logger.info("[ReceiverWorker] :start_receiver_worker")
+    Logger.info("[ReceiverWorker #{inspect(self())}] :start_receiver_worker")
     EventsourceEx.new(state.url, stream_to: self())
     loop_receive(state.socket, state.routerPID, state.counterPID)
     {:noreply, state}

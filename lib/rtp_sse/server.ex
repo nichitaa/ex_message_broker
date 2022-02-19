@@ -16,7 +16,7 @@ defmodule RTP_SSE.Server do
         [:binary, packet: :line, active: false, reuseaddr: true]
       )
 
-    Logger.info("[Server] Accepting connections on PORT=#{port}")
+    Logger.info("[Server #{inspect(self())}] Accepting connections on PORT=#{port}")
     loop_acceptor(socket)
   end
 
@@ -24,7 +24,7 @@ defmodule RTP_SSE.Server do
 
   defp loop_acceptor(socket) do
     {:ok, client} = :gen_tcp.accept(socket)
-    Logger.info("[Server] New client SOCKET=#{inspect(socket)}")
+    Logger.info("[Server #{inspect(self())}] New client SOCKET=#{inspect(socket)}")
 
     {:ok, pid} =
       Task.Supervisor.start_child(RTP_SSE.Server.TaskSupervisor, fn -> serve(client) end)

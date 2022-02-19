@@ -105,6 +105,7 @@ defmodule RTP_SSE.LoggerRouter do
           # remove some workers
           send(self(), {:remove_logger_workers, -diff})
         _ ->
+          Logger.info("[LoggerRouter #{inspect(self())}] leaving same number of workers=#{length(state.workers)}")
       end
     end
     {:noreply, %{index: state.index, socket: state.socket, refs: state.refs, workers: state.workers}}
@@ -136,7 +137,7 @@ defmodule RTP_SSE.LoggerRouter do
       end
     )
     workers = Enum.concat(state.workers, logger_workers)
-    Logger.info("[LoggerRouter = #{inspect(self())}] workers nr after :add #{length(workers)}")
+    Logger.info("[LoggerRouter #{inspect(self())}] number of workers after add=#{length(workers)}")
     {:noreply, %{index: state.index, socket: state.socket, refs: refs, workers: workers}}
   end
 
@@ -154,7 +155,7 @@ defmodule RTP_SSE.LoggerRouter do
       end
     )
     workers = Enum.reject(state.workers, fn x -> x in logger_workers_to_remove end)
-    Logger.info("[LoggerRouter = #{inspect(self())}] workers nr after :remove #{length(workers)}")
+    Logger.info("[LoggerRouter #{inspect(self())}] number of workers after remove=#{length(workers)}")
     {:noreply, %{index: state.index, socket: state.socket, refs: state.refs, workers: workers}}
   end
 
