@@ -1,8 +1,8 @@
 defmodule RTP_SSE.LoggerWorker do
   @moduledoc """
   The actual workers (LoggerWorkers) that are parsing the tweet data,
-  if a panic message is received it will kill itself by raising an error,
-  otherwise it will just send the message to the socket (client) via `:gen_tcp.send(socket, msg)`
+  if a panic message is received it notify the parent `LoggerRouter` process to kill this
+  child worker, otherwise it will just send the message to the socket (client) via `:gen_tcp.send(socket, msg)`
   """
 
   use GenServer
@@ -11,30 +11,28 @@ defmodule RTP_SSE.LoggerWorker do
   ## Client API
 
   def start_link(opts) do
-    state = parse_opts(opts)
-    Logger.info("[LoggerWorker] start_link SOCKET=#{inspect(state)}")
-    GenServer.start_link(__MODULE__, state)
+    {socket, routerPID} = parse_opts(opts)
+    GenServer.start_link(__MODULE__, %{socket: socket, routerPID: routerPID})
   end
 
   ## Privates
 
   defp parse_opts(opts) do
     socket = opts[:socket]
-    {socket}
+    routerPID = opts[:routerPID]
+    {socket, routerPID}
   end
 
   @doc """
   The `panic` message is just a non serializable JSON,
-  that is in format of `"{\"message\": panic}"` and if it is received
-  it will kill the worker, otherwise will return the `tweet.message.tweet.text` field
+  that is in format of `"{\"message\": panic}"`
   """
   defp parse_tweet(data) do
     if data == "{\"message\": panic}" do
-      # kill the worker by raising an error
-      raise("################ PANIC :( ################")
+      :kill_worker
     else
       {:ok, json} = Poison.decode(data)
-      "tweet: " <> " " <> json["message"]["tweet"]["text"] <> "\r\n"
+      "tweet: worker-#{inspect(self())}" <> " " <> json["message"]["tweet"]["text"] <> "\r\n"
     end
   end
 
@@ -46,14 +44,20 @@ defmodule RTP_SSE.LoggerWorker do
   end
 
   @doc """
-  Used by the LoggerRouter to send the tweet data, it is parsing it
-  and sending the tweet message to the socket (client)
+  Used by the `LoggerRouter` to send the tweet data, it is parsing it
+  and sending the tweet message to the socket (client) if it is a valid message,
+  otherwise will ask the `LoggerRouter` parent process to kill this child worker
   """
   @impl true
   def handle_cast({:log_tweet, tweet_data}, state) do
-    {socket} = state
     msg = parse_tweet(tweet_data)
-    :gen_tcp.send(socket, msg)
+    if msg == :kill_worker do
+      GenServer.cast(state.routerPID, {:terminate_logger_worker, self()})
+    else
+      :gen_tcp.send(state.socket, msg)
+    end
+
     {:noreply, state}
   end
+
 end
