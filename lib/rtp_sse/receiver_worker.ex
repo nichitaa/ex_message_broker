@@ -11,14 +11,25 @@ defmodule RTP_SSE.ReceiverWorker do
   ## Client API
 
   def start_link(opts) do
-    state = parse_opts(opts)
-    {socket, url, routerPID} = state
+    {socket, url, routerPID} = parse_opts(opts)
 
     Logger.info(
       "[ReceiverWorker] start_link SOCKET=#{inspect(socket)}, routerPID=#{inspect(routerPID)}, url=#{url}"
     )
 
-    #    Logger.info("receiver start_link")
+    {:ok, counterPID} =
+      DynamicSupervisor.start_child(
+        RTP_SSE.TweetsCounterDynamicSupervisor,
+        {RTP_SSE.TweetsCounter, routerPID: routerPID}
+      )
+
+    state = %{
+      socket: socket,
+      url: url,
+      routerPID: routerPID,
+      counterPID: counterPID
+    }
+
     GenServer.start_link(__MODULE__, state, opts)
   end
 
@@ -31,13 +42,14 @@ defmodule RTP_SSE.ReceiverWorker do
     {socket, url, routerPID}
   end
 
-  defp loop_receive(socket, routerPID) do
+  defp loop_receive(socket, routerPID, counterPID) do
     # Recursively wait for new events by defining the `receive` callback
     # and send the received `tweet.data` to the linked router process
     receive do
       tweet ->
+        GenServer.cast(counterPID, {:increment})
         GenServer.cast(routerPID, {:route, tweet.data})
-        loop_receive(socket, routerPID)
+        loop_receive(socket, routerPID, counterPID)
     end
   end
 
@@ -55,14 +67,9 @@ defmodule RTP_SSE.ReceiverWorker do
   """
   @impl true
   def handle_info(:start_receiver_worker, state) do
-    {socket, url, routerPID} = state
-
-    Logger.info(
-      "[ReceiverWorker] :start_receiver_worker SOCKET=#{inspect(socket)}, routerPID=#{inspect(routerPID)}, url=#{url}"
-    )
-
-    EventsourceEx.new(url, stream_to: self())
-    loop_receive(socket, routerPID)
+    Logger.info("[ReceiverWorker] :start_receiver_worker")
+    EventsourceEx.new(state.url, stream_to: self())
+    loop_receive(state.socket, state.routerPID, state.counterPID)
     {:noreply, state}
   end
 end

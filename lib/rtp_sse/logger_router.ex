@@ -84,4 +84,17 @@ defmodule RTP_SSE.LoggerRouter do
 
     {:noreply, %{index: state.index + 1, socket: state.socket}}
   end
+
+  @doc """
+  5 tweets per 1 worker
+  """
+  @impl true
+  def handle_cast({:autoscale, cnt}, state) do
+    logger_workers = DynamicSupervisor.which_children(RTP_SSE.LoggerWorkerDynamicSupervisor)
+    workers_no = length(logger_workers)
+    Logger.info(
+      "[LoggerRouter #{inspect(self())}] : auto-scale counter #{cnt}, workers no: #{workers_no}"
+    )
+    {:noreply, %{index: state.index + 1, socket: state.socket}}
+  end
 end
