@@ -12,8 +12,16 @@ defmodule RTP_SSE.LoggerRouter do
 
   def start_link(opts) do
     {socket} = parse_opts(opts)
-    Logger.info("[LoggerRouter] start_link SOCKET=#{inspect(socket)}")
-    GenServer.start_link(__MODULE__, %{index: 0, socket: socket, refs: %{}, workers: []})
+    {:ok, statisticWorkerPID} =
+      DynamicSupervisor.start_child(
+        RTP_SSE.StatisticWorkerDynamicSupervisor,
+        {RTP_SSE.StatisticWorker, %{}}
+      )
+    # Logger.info("[LoggerRouter] start_link SOCKET=#{inspect(socket)}")
+    GenServer.start_link(
+      __MODULE__,
+      %{index: 0, socket: socket, refs: %{}, workers: [], statisticWorkerPID: statisticWorkerPID}
+    )
   end
 
   ## Private
@@ -47,19 +55,30 @@ defmodule RTP_SSE.LoggerRouter do
       Enum.at(state.workers, rem(state.index, length(state.workers)))
       |> GenServer.cast({:log_tweet, tweet_data})
     end
-    {:noreply, %{index: state.index + 1, socket: state.socket, refs: state.refs, workers: state.workers}}
+    {
+      :noreply,
+      %{
+        index: state.index + 1,
+        socket: state.socket,
+        refs: state.refs,
+        workers: state.workers,
+        statisticWorkerPID: state.statisticWorkerPID
+      }
+    }
   end
 
   @doc """
-  Terminates a worker process then starts a new one
-  and links it to the current router process, can not just
-  raise an error in worker because it will force the Supervisor to restart
+  Removes the worker from state so it will not receive any more tweets to the message queue,
+  and after a delay of 3 seconds terminates the worker process for real with `Supervisor.terminate_child`,
+  instead it created a new worker process and links it to the current router process,
+  we can not just raise an error in worker because it will force the Supervisor to restart
   the worker and we just can not find out what is the PID of the newly restarted worker
   to link to this specific router
   """
   @impl true
   def handle_cast({:terminate_logger_worker, workerPID}, state) do
-    DynamicSupervisor.terminate_child(RTP_SSE.LoggerWorkerDynamicSupervisor, workerPID)
+    # actually terminate child worker process only after 3 sec, so it would process all messages
+    Process.send_after(self(), {:kill_child_worker, workerPID}, 4000)
 
     {:ok, newWorkerPID} =
       DynamicSupervisor.start_child(
@@ -73,7 +92,34 @@ defmodule RTP_SSE.LoggerRouter do
     workers = List.delete(state.workers, workerPID)
     workers = Enum.concat(workers, [newWorkerPID])
 
-    {:noreply, %{index: state.index, socket: state.socket, refs: refs, workers: workers}}
+    {
+      :noreply,
+      %{
+        index: state.index,
+        socket: state.socket,
+        refs: refs,
+        workers: workers,
+        statisticWorkerPID: state.statisticWorkerPID
+      }
+    }
+  end
+
+  @doc """
+    Recursively check that a worker has no more unprocessed message inside queue,if so, terminate it
+  """
+  @impl true
+  def handle_info({:kill_child_worker, workerPID}, state) do
+    case Process.info(workerPID, :message_queue_len) do
+      {:message_queue_len, len} when len > 0 ->
+        # Logger.info("[LoggerRouter #{inspect(self())}] KILL WORKER=#{inspect(workerPID)} AFTER SOME TIME | q=#{len}")
+        Process.send_after(self(), {:kill_child_worker, workerPID}, 4000)
+      {:message_queue_len, len} when len == 0 ->
+        # Logger.info("[LoggerRouter #{inspect(self())}] KILL WORKER=#{inspect(workerPID)} | q=#{len}")
+        DynamicSupervisor.terminate_child(RTP_SSE.LoggerWorkerDynamicSupervisor, workerPID)
+      _ ->
+      # Logger.info("[LoggerRouter #{inspect(self())}] WORKER ALREADY KILLED #{inspect(workerPID)}")
+    end
+    {:noreply, state}
   end
 
   @doc """
@@ -105,11 +151,22 @@ defmodule RTP_SSE.LoggerRouter do
           # remove some workers
           send(self(), {:remove_logger_workers, -diff})
         _ ->
-          Logger.info("[LoggerRouter #{inspect(self())}] leaving same number of workers=#{length(state.workers)}")
+        # Logger.info("[LoggerRouter #{inspect(self())}] leaving same number of workers=#{length(state.workers)}")
       end
     end
-    {:noreply, %{index: state.index, socket: state.socket, refs: state.refs, workers: state.workers}}
+    {
+      :noreply,
+      %{
+        index: state.index,
+        socket: state.socket,
+        refs: state.refs,
+        workers: state.workers,
+        statisticWorkerPID: state.statisticWorkerPID
+      }
+    }
   end
+
+
 
   @doc """
   Add and link some (nr) LoggerWorkers to the router process
@@ -123,7 +180,12 @@ defmodule RTP_SSE.LoggerRouter do
           {:ok, workerPID} =
             DynamicSupervisor.start_child(
               RTP_SSE.LoggerWorkerDynamicSupervisor,
-              {RTP_SSE.LoggerWorker, socket: state.socket, routerPID: self()}
+              {
+                RTP_SSE.LoggerWorker,
+                socket: state.socket,
+                routerPID: self(),
+                statisticWorkerPID: state.statisticWorkerPID
+              }
             )
           workerPID
         end
@@ -138,7 +200,16 @@ defmodule RTP_SSE.LoggerRouter do
     )
     workers = Enum.concat(state.workers, logger_workers)
     Logger.info("[LoggerRouter #{inspect(self())}] number of workers after add=#{length(workers)}")
-    {:noreply, %{index: state.index, socket: state.socket, refs: refs, workers: workers}}
+    {
+      :noreply,
+      %{
+        index: state.index,
+        socket: state.socket,
+        refs: refs,
+        workers: workers,
+        statisticWorkerPID: state.statisticWorkerPID
+      }
+    }
   end
 
   @doc """
@@ -151,12 +222,21 @@ defmodule RTP_SSE.LoggerRouter do
     Enum.each(
       logger_workers_to_remove,
       fn workerPID ->
-        DynamicSupervisor.terminate_child(RTP_SSE.LoggerWorkerDynamicSupervisor, workerPID)
+        Process.send_after(self(), {:kill_child_worker, workerPID}, 4000)
       end
     )
     workers = Enum.reject(state.workers, fn x -> x in logger_workers_to_remove end)
     Logger.info("[LoggerRouter #{inspect(self())}] number of workers after remove=#{length(workers)}")
-    {:noreply, %{index: state.index, socket: state.socket, refs: state.refs, workers: workers}}
+    {
+      :noreply,
+      %{
+        index: state.index,
+        socket: state.socket,
+        refs: state.refs,
+        workers: workers,
+        statisticWorkerPID: state.statisticWorkerPID
+      }
+    }
   end
 
   @doc """
@@ -166,6 +246,15 @@ defmodule RTP_SSE.LoggerRouter do
   @impl true
   def handle_info({:DOWN, ref, :process, workerPID, _reason}, state) do
     {_prev, refs} = Map.pop(state.refs, ref)
-    {:noreply, %{index: state.index, socket: state.socket, refs: refs, workers: state.workers}}
+    {
+      :noreply,
+      %{
+        index: state.index,
+        socket: state.socket,
+        refs: refs,
+        workers: state.workers,
+        statisticWorkerPID: state.statisticWorkerPID
+      }
+    }
   end
 end

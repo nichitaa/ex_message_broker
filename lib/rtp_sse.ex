@@ -40,6 +40,7 @@ defmodule RTP_SSE do
       {DynamicSupervisor, name: RTP_SSE.ReceiverWorkerDynamicSupervisor, strategy: :one_for_one},
       # Tweets counter supervisor, required for autoscaling the workers
       {DynamicSupervisor, name: RTP_SSE.TweetsCounterDynamicSupervisor, strategy: :one_for_one},
+      {DynamicSupervisor, name: RTP_SSE.StatisticWorkerDynamicSupervisor, strategy: :one_for_one},
       {RTP_SSE.HashtagsWorker, name: RTP_SSE.HashtagsWorker},
       # Server
       {Task.Supervisor, name: RTP_SSE.Server.TaskSupervisor},
