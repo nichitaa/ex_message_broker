@@ -7,7 +7,7 @@ defmodule RTP_SSE.StatisticWorker do
 
   @impl true
   def start_link(_opts) do
-    state = %{execution_times: []}
+    state = %{execution_times: [], crashes_nr: 0}
     GenServer.start_link(__MODULE__, state)
   end
 
@@ -23,15 +23,24 @@ defmodule RTP_SSE.StatisticWorker do
       first = percentile(state.execution_times, 75)
       second = percentile(state.execution_times, 85)
       third = percentile(state.execution_times, 95)
-      Logger.info("[StatisticWorker #{inspect(self())}] Percentile stats 75%=#{first} | 85%=#{second} | 95%=#{third}")
+      Logger.info(
+        "[StatisticWorker #{inspect(self())}] Percentile stats 75%=#{first} | 85%=#{second} | 95%=#{third} [#{
+          state.crashes_nr
+        } CRASHES/5sec]"
+      )
     end
     reset_stats_loop()
-    {:noreply, %{execution_times: []}}
+    {:noreply, %{execution_times: [], crashes_nr: 0}}
   end
 
   @impl true
   def handle_cast({:add_execution_time, time}, state) do
-    {:noreply, %{execution_times: Enum.concat(state.execution_times, [time])}}
+    {:noreply, %{execution_times: Enum.concat(state.execution_times, [time]), crashes_nr: state.crashes_nr}}
+  end
+
+  @impl true
+  def handle_cast({:add_worker_crash}, state) do
+    {:noreply, %{execution_times: state.execution_times, crashes_nr: state.crashes_nr + 1}}
   end
 
   ## Private

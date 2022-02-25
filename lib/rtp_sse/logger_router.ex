@@ -246,6 +246,7 @@ defmodule RTP_SSE.LoggerRouter do
   @impl true
   def handle_info({:DOWN, ref, :process, workerPID, _reason}, state) do
     {_prev, refs} = Map.pop(state.refs, ref)
+    GenServer.cast(state.statisticWorkerPID, {:add_worker_crash})
     {
       :noreply,
       %{
