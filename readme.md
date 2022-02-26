@@ -54,9 +54,9 @@ iex(1)> RTP_SSE.HashtagsWorker.download_stats()
 
 
 
-### **Inspect `Elixir Observer tool**
+### **Inspect `Elixir` Observer tool**
 
-![observer_v2](./assets/observer2.jpg)
+![observer_v2](./assets/observer3.jpg)
 
 ### **References**
 
