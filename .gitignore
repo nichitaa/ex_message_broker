@@ -27,3 +27,5 @@ rtp_sse-*.tar
 
 # VS Code extensions
 /.elixir_ls/
+
+/.idea/
