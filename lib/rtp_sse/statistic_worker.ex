@@ -1,14 +1,15 @@
 defmodule RTP_SSE.StatisticWorker do
 
+  import ShorterMaps
   use GenServer
   require Logger
 
   ## Server callbacks
 
   @impl true
-  def start_link(_opts) do
+  def start_link(_args, opts \\ []) do
     state = %{execution_times: [], crashes_nr: 0}
-    GenServer.start_link(__MODULE__, state)
+    GenServer.start_link(__MODULE__, state, opts)
   end
 
   @impl true
@@ -19,13 +20,15 @@ defmodule RTP_SSE.StatisticWorker do
 
   @impl true
   def handle_cast({:reset_stats_loop}, state) do
-    if length(state.execution_times) > 0 do
-      first = percentile(state.execution_times, 75)
-      second = percentile(state.execution_times, 85)
-      third = percentile(state.execution_times, 95)
+    ~M{execution_times, crashes_nr} = state
+
+    if length(execution_times) > 0 do
+      first = percentile(execution_times, 75)
+      second = percentile(execution_times, 85)
+      third = percentile(execution_times, 95)
       Logger.info(
         "[StatisticWorker #{inspect(self())}] Percentile stats 75%=#{first} | 85%=#{second} | 95%=#{third} [#{
-          state.crashes_nr
+          crashes_nr
         } CRASHES/5sec]"
       )
     end
@@ -35,12 +38,12 @@ defmodule RTP_SSE.StatisticWorker do
 
   @impl true
   def handle_cast({:add_execution_time, time}, state) do
-    {:noreply, %{execution_times: Enum.concat(state.execution_times, [time]), crashes_nr: state.crashes_nr}}
+    {:noreply, %{state | execution_times: Enum.concat(state.execution_times, [time])}}
   end
 
   @impl true
   def handle_cast({:add_worker_crash}, state) do
-    {:noreply, %{execution_times: state.execution_times, crashes_nr: state.crashes_nr + 1}}
+    {:noreply, %{state | crashes_nr: state.crashes_nr + 1}}
   end
 
   ## Private
@@ -70,6 +73,5 @@ defmodule RTP_SSE.StatisticWorker do
     res = lower + (upper - lower) * (r - f)
     Float.ceil(res, 2)
   end
-
 
 end

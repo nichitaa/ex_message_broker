@@ -3,11 +3,12 @@ defmodule RTP_SSE.HashtagsWorker do
   use GenServer
   require Logger
 
-  ## Client API
-
-  def start_link(opts) do
+  @impl true
+  def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, %{}, opts)
   end
+
+  ## Client API
 
   @doc """
   If the tweet has some tags it will add in our state map

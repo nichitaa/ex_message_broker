@@ -21,7 +21,8 @@ defmodule RTP_SSE.MixProject do
   defp deps do
     [
       {:eventsource_ex, "~> 0.0.2"},
-      {:poison, "~> 3.1"}
+      {:poison, "~> 3.1"},
+      {:shorter_maps, "~> 2.0"}
     ]
   end
 end

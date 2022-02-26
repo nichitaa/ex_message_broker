@@ -1,16 +1,18 @@
 defmodule RTP_SSE.TweetsCounter do
+  import ShorterMaps
   use GenServer
   require Logger
 
-  ## Client API
-
   def start_link(opts) do
-    {routerPID} = parse_opts(opts)
-    state = %{routerPID: routerPID, counter: 0}
+    ~M{routerPID} = parse_opts(opts)
+
+    state = ~M{routerPID, counter: 0}
     GenServer.start_link(__MODULE__, state, opts)
   end
 
-  def reset_counter_loop() do
+  ## Privates
+
+  defp reset_counter_loop() do
     # Running in a separate process so it will not block
     counterPID = self()
 
@@ -28,7 +30,7 @@ defmodule RTP_SSE.TweetsCounter do
 
   defp parse_opts(opts) do
     routerPID = opts[:routerPID]
-    {routerPID}
+    ~M{routerPID}
   end
 
   ## Server callbacks
@@ -41,14 +43,15 @@ defmodule RTP_SSE.TweetsCounter do
 
   @impl true
   def handle_cast({:reset_counter}, state) do
-    GenServer.cast(state.routerPID, {:autoscale, state.counter})
+    ~M{routerPID, counter} = state
+    GenServer.cast(routerPID, {:autoscale, counter})
     reset_counter_loop()
-    {:noreply, %{routerPID: state.routerPID, counter: 0}}
+    {:noreply, %{state | counter: 0}}
   end
 
   @impl true
   def handle_cast({:increment}, state) do
-    {:noreply, %{routerPID: state.routerPID, counter: state.counter + 1}}
+    {:noreply, %{state | counter: state.counter + 1}}
   end
 
 end

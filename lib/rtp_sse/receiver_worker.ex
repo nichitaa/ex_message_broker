@@ -5,13 +5,12 @@ defmodule RTP_SSE.ReceiverWorker do
   event / tweet to it)
   """
 
+  import ShorterMaps
   use GenServer
   require Logger
 
-  ## Client API
-
-  def start_link(opts) do
-    {socket, url, routerPID} = parse_opts(opts)
+  def start_link(args, opts \\ []) do
+    ~M{socket, url, routerPID} = parse_opts(args)
 
     Logger.info(
       "[ReceiverWorker] start_link SOCKET=#{inspect(socket)}, routerPID=#{inspect(routerPID)}, url=#{url}"
@@ -23,14 +22,7 @@ defmodule RTP_SSE.ReceiverWorker do
         {RTP_SSE.TweetsCounter, routerPID: routerPID}
       )
 
-    state = %{
-      socket: socket,
-      url: url,
-      routerPID: routerPID,
-      counterPID: counterPID
-    }
-
-    GenServer.start_link(__MODULE__, state, opts)
+    GenServer.start_link(__MODULE__, ~M{socket, url, routerPID, counterPID}, opts)
   end
 
   ## Private
@@ -39,17 +31,18 @@ defmodule RTP_SSE.ReceiverWorker do
     socket = opts[:socket]
     url = opts[:url]
     routerPID = opts[:routerPID]
-    {socket, url, routerPID}
+    ~M{socket, url, routerPID}
   end
 
-  defp loop_receive(socket, routerPID, counterPID) do
+  defp loop_receive(state) do
+    ~M{socket, routerPID, counterPID} = state
     # Recursively wait for new events by defining the `receive` callback
     # and send the received `tweet.data` to the linked router process
     receive do
       tweet ->
         GenServer.cast(counterPID, {:increment})
         GenServer.cast(routerPID, {:route, tweet.data})
-        loop_receive(socket, routerPID, counterPID)
+        loop_receive(state)
     end
   end
 
@@ -69,7 +62,7 @@ defmodule RTP_SSE.ReceiverWorker do
   def handle_info(:start_receiver_worker, state) do
     Logger.info("[ReceiverWorker #{inspect(self())}] :start_receiver_worker")
     EventsourceEx.new(state.url, stream_to: self())
-    loop_receive(state.socket, state.routerPID, state.counterPID)
+    loop_receive(state)
     {:noreply, state}
   end
 end

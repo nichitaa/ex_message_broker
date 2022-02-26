@@ -7,28 +7,27 @@ defmodule RTP_SSE.LoggerRouter do
   the tweet for a specific worker in a round robin circular order
   """
 
+  import ShorterMaps
   use GenServer
   require Logger
 
-  def start_link(opts) do
-    {socket} = parse_opts(opts)
+  def start_link(args, opts \\ []) do
+    ~M{socket} = parse_args(args)
     {:ok, statisticWorkerPID} =
       DynamicSupervisor.start_child(
         RTP_SSE.StatisticWorkerDynamicSupervisor,
-        {RTP_SSE.StatisticWorker, %{}}
+        {RTP_SSE.StatisticWorker, []}
       )
     # Logger.info("[LoggerRouter] start_link SOCKET=#{inspect(socket)}")
-    GenServer.start_link(
-      __MODULE__,
-      %{index: 0, socket: socket, refs: %{}, workers: [], statisticWorkerPID: statisticWorkerPID}
-    )
+    state = ~M{socket, statisticWorkerPID, index: 0, workers: [], refs: ~M()}
+    GenServer.start_link(__MODULE__, state, opts)
   end
 
   ## Private
 
-  defp parse_opts(opts) do
+  def parse_args(opts) do
     socket = opts[:socket]
-    {socket}
+    ~M{socket}
   end
 
   ## Callbacks
@@ -51,20 +50,12 @@ defmodule RTP_SSE.LoggerRouter do
   """
   @impl true
   def handle_cast({:route, tweet_data}, state) do
-    if length(state.workers) > 0 do
-      Enum.at(state.workers, rem(state.index, length(state.workers)))
+    ~M{workers, index} = state
+    if length(workers) > 0 do
+      Enum.at(workers, rem(index, length(workers)))
       |> GenServer.cast({:log_tweet, tweet_data})
     end
-    {
-      :noreply,
-      %{
-        index: state.index + 1,
-        socket: state.socket,
-        refs: state.refs,
-        workers: state.workers,
-        statisticWorkerPID: state.statisticWorkerPID
-      }
-    }
+    {:noreply, %{state | index: index + 1}}
   end
 
   @doc """
@@ -77,31 +68,23 @@ defmodule RTP_SSE.LoggerRouter do
   """
   @impl true
   def handle_cast({:terminate_logger_worker, workerPID}, state) do
+    ~M{socket, refs, workers} = state
     # actually terminate child worker process only after 3 sec, so it would process all messages
     Process.send_after(self(), {:kill_child_worker, workerPID}, 4000)
 
     {:ok, newWorkerPID} =
       DynamicSupervisor.start_child(
         RTP_SSE.LoggerWorkerDynamicSupervisor,
-        {RTP_SSE.LoggerWorker, socket: state.socket, routerPID: self()}
+        {RTP_SSE.LoggerWorker, socket: socket, routerPID: self()}
       )
 
     ref = Process.monitor(newWorkerPID)
-    refs = Map.put(state.refs, ref, newWorkerPID)
+    refs = Map.put(refs, ref, newWorkerPID)
 
-    workers = List.delete(state.workers, workerPID)
+    workers = List.delete(workers, workerPID)
     workers = Enum.concat(workers, [newWorkerPID])
 
-    {
-      :noreply,
-      %{
-        index: state.index,
-        socket: state.socket,
-        refs: refs,
-        workers: workers,
-        statisticWorkerPID: state.statisticWorkerPID
-      }
-    }
+    {:noreply, %{state | refs: refs, workers: workers}}
   end
 
   @doc """
@@ -140,7 +123,7 @@ defmodule RTP_SSE.LoggerRouter do
   @impl true
   def handle_cast({:autoscale, cnt}, state) do
     if(cnt > 0) do
-      expect_workers_no = div(cnt, 5)
+      expect_workers_no = 1 + div(cnt, 5)
       current_workers_no = length(state.workers)
       diff = expect_workers_no - current_workers_no
       case diff do
@@ -154,25 +137,15 @@ defmodule RTP_SSE.LoggerRouter do
         # Logger.info("[LoggerRouter #{inspect(self())}] leaving same number of workers=#{length(state.workers)}")
       end
     end
-    {
-      :noreply,
-      %{
-        index: state.index,
-        socket: state.socket,
-        refs: state.refs,
-        workers: state.workers,
-        statisticWorkerPID: state.statisticWorkerPID
-      }
-    }
+    {:noreply, state}
   end
-
-
 
   @doc """
   Add and link some (nr) LoggerWorkers to the router process
   """
   @impl true
   def handle_info({:add_logger_workers, nr}, state) do
+    ~M{socket, statisticWorkerPID, refs, workers} = state
     logger_workers =
       Enum.map(
         0..nr,
@@ -182,9 +155,9 @@ defmodule RTP_SSE.LoggerRouter do
               RTP_SSE.LoggerWorkerDynamicSupervisor,
               {
                 RTP_SSE.LoggerWorker,
-                socket: state.socket,
+                socket: socket,
                 routerPID: self(),
-                statisticWorkerPID: state.statisticWorkerPID
+                statisticWorkerPID: statisticWorkerPID
               }
             )
           workerPID
@@ -192,24 +165,15 @@ defmodule RTP_SSE.LoggerRouter do
       )
     refs = Enum.reduce(
       logger_workers,
-      state.refs,
+      refs,
       fn pid, acc ->
         ref = Process.monitor(pid)
         Map.put(acc, ref, pid)
       end
     )
-    workers = Enum.concat(state.workers, logger_workers)
+    workers = Enum.concat(workers, logger_workers)
     Logger.info("[LoggerRouter #{inspect(self())}] number of workers after add=#{length(workers)}")
-    {
-      :noreply,
-      %{
-        index: state.index,
-        socket: state.socket,
-        refs: refs,
-        workers: workers,
-        statisticWorkerPID: state.statisticWorkerPID
-      }
-    }
+    {:noreply, %{state | refs: refs, workers: workers}}
   end
 
   @doc """
@@ -217,26 +181,18 @@ defmodule RTP_SSE.LoggerRouter do
   """
   @impl true
   def handle_info({:remove_logger_workers, nr}, state) do
+    ~M{workers} = state
     logger_workers_to_remove =
-      Enum.take(state.workers, nr)
+      Enum.take(workers, nr)
     Enum.each(
       logger_workers_to_remove,
       fn workerPID ->
         Process.send_after(self(), {:kill_child_worker, workerPID}, 4000)
       end
     )
-    workers = Enum.reject(state.workers, fn x -> x in logger_workers_to_remove end)
+    workers = Enum.reject(workers, fn x -> x in logger_workers_to_remove end)
     Logger.info("[LoggerRouter #{inspect(self())}] number of workers after remove=#{length(workers)}")
-    {
-      :noreply,
-      %{
-        index: state.index,
-        socket: state.socket,
-        refs: state.refs,
-        workers: workers,
-        statisticWorkerPID: state.statisticWorkerPID
-      }
-    }
+    {:noreply, %{state | workers: workers}}
   end
 
   @doc """
@@ -247,15 +203,6 @@ defmodule RTP_SSE.LoggerRouter do
   def handle_info({:DOWN, ref, :process, workerPID, _reason}, state) do
     {_prev, refs} = Map.pop(state.refs, ref)
     GenServer.cast(state.statisticWorkerPID, {:add_worker_crash})
-    {
-      :noreply,
-      %{
-        index: state.index,
-        socket: state.socket,
-        refs: refs,
-        workers: state.workers,
-        statisticWorkerPID: state.statisticWorkerPID
-      }
-    }
+    {:noreply, %{state | refs: refs}}
   end
 end

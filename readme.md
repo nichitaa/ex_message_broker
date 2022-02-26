@@ -10,7 +10,7 @@
 
 ```bash
 # clone the reporsitory 
-$ git clone <repo_link> 
+$ git clone https://github.com/nichitaa/rtp_sse
 # instal dependencies
 $ mix deps.get
 ```
