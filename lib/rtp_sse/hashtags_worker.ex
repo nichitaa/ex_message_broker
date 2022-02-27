@@ -1,4 +1,12 @@
 defmodule RTP_SSE.HashtagsWorker do
+  @moduledoc """
+  Usage:
+  print hashtags statistics to the terminal
+      iex> RTP_SSE.HashtagsWorker.show_stats
+
+  save hashtags statistics as `JSON` (file `hashtag_stats.json`)
+      iex> RTP_SSE.HashtagsWorker.download_stats
+  """
 
   use GenServer
   require Logger

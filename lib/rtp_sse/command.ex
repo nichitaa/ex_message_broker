@@ -3,7 +3,7 @@ defmodule RTP_SSE.Command do
   Utility like module for our `RTP_SSE.Server` commands.
   Contains the definition for each command, knows how to parse and run it.
   """
-
+  import Destructure
   require Logger
 
   ## Client API
@@ -49,10 +49,8 @@ defmodule RTP_SSE.Command do
           GenServer.call(routerPID, {:is_router_for_socket, socket})
         end
       )
-      |> Enum.map(fn x ->
-        # get only the PID from tuple
-        elem(x, 1)
-      end)
+      # get only the PID from tuple
+      |> Enum.map(fn x -> elem(x, 1) end)
 
     # we found active LoggerRouters for this socket, no need to create new LoggerRouters and workers
     if length(routers_for_socket) > 0 do
@@ -63,16 +61,18 @@ defmodule RTP_SSE.Command do
       # start a new SSE Receiver for already existing routers and workers
       routers_for_socket
       |> Enum.with_index()
-      |> Enum.each(fn {routerPID, index} ->
-        DynamicSupervisor.start_child(
-          RTP_SSE.ReceiverWorkerDynamicSupervisor,
-          {
-            RTP_SSE.ReceiverWorker,
-            # endpoints are `/1` and `/2`
-            socket: socket, url: "http://localhost:4000/tweets/#{index + 1}", routerPID: routerPID
-          }
-        )
-      end)
+      |> Enum.each(
+           fn {routerPID, index} ->
+             DynamicSupervisor.start_child(
+               RTP_SSE.ReceiverWorkerDynamicSupervisor,
+               {
+                 RTP_SSE.ReceiverWorker,
+                 # endpoints are `/1` and `/2`
+                 d(%{socket, routerPID, url: "http://localhost:4000/tweets/#{index + 1}"}),
+               }
+             )
+           end
+         )
     else
       # there are not LoggerRouter for the `twitter` command for this client, start all required processes
       # start 2 new LoggerRouter ( 1..2 map because of the endpoints)
@@ -87,22 +87,22 @@ defmodule RTP_SSE.Command do
             {:ok, routerPID} =
               DynamicSupervisor.start_child(
                 RTP_SSE.LoggerRouterDynamicSupervisor,
-                {RTP_SSE.LoggerRouter, socket: socket}
+                {RTP_SSE.LoggerRouter, d(%{socket})}
               )
 
             {routerPID, i}
           end
         )
 
-      # start 2 new Receivers for handing the incoming SSE for the given enpoints
+      # start 2 new Receivers for handing the incoming SSE for the given endpoints
       Enum.map(
         routerPIDs,
-        fn {pid, i} ->
+        fn {routerPID, index} ->
           DynamicSupervisor.start_child(
             RTP_SSE.ReceiverWorkerDynamicSupervisor,
             {
               RTP_SSE.ReceiverWorker,
-              socket: socket, url: "http://localhost:4000/tweets/#{i}", routerPID: pid
+              d(%{socket, routerPID, url: "http://localhost:4000/tweets/#{index}"}),
             }
           )
         end
