@@ -61,18 +61,16 @@ defmodule RTP_SSE.Command do
       # start a new SSE Receiver for already existing routers and workers
       routers_for_socket
       |> Enum.with_index()
-      |> Enum.each(
-           fn {routerPID, index} ->
-             DynamicSupervisor.start_child(
-               RTP_SSE.ReceiverWorkerDynamicSupervisor,
-               {
-                 RTP_SSE.ReceiverWorker,
-                 # endpoints are `/1` and `/2`
-                 d(%{socket, routerPID, url: "http://localhost:4000/tweets/#{index + 1}"}),
-               }
-             )
-           end
-         )
+      |> Enum.each(fn {routerPID, index} ->
+        DynamicSupervisor.start_child(
+          RTP_SSE.ReceiverWorkerDynamicSupervisor,
+          {
+            RTP_SSE.ReceiverWorker,
+            # endpoints are `/1` and `/2`
+            d(%{socket, routerPID, url: "http://localhost:4000/tweets/#{index + 1}"})
+          }
+        )
+      end)
     else
       # there are not LoggerRouter for the `twitter` command for this client, start all required processes
       # start 2 new LoggerRouter ( 1..2 map because of the endpoints)
@@ -102,7 +100,7 @@ defmodule RTP_SSE.Command do
             RTP_SSE.ReceiverWorkerDynamicSupervisor,
             {
               RTP_SSE.ReceiverWorker,
-              d(%{socket, routerPID, url: "http://localhost:4000/tweets/#{index}"}),
+              d(%{socket, routerPID, url: "http://localhost:4000/tweets/#{index}"})
             }
           )
         end

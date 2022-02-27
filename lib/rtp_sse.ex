@@ -30,9 +30,7 @@ defmodule RTP_SSE do
       # just constantly kills our workers !!
       {
         DynamicSupervisor,
-        name: RTP_SSE.LoggerWorkerDynamicSupervisor,
-        strategy: :one_for_one,
-        max_restarts: 100
+        name: RTP_SSE.LoggerWorkerDynamicSupervisor, strategy: :one_for_one, max_restarts: 100
       },
       # Each client connection will start a LoggerRouter process
       {DynamicSupervisor, name: RTP_SSE.LoggerRouterDynamicSupervisor, strategy: :one_for_one},

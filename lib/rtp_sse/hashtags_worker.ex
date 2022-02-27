@@ -3,15 +3,13 @@ defmodule RTP_SSE.HashtagsWorker do
   Usage:
   print hashtags statistics to the terminal
       iex> RTP_SSE.HashtagsWorker.show_stats
-
+  
   save hashtags statistics as `JSON` (file `hashtag_stats.json`)
       iex> RTP_SSE.HashtagsWorker.download_stats
   """
-
   use GenServer
   require Logger
 
-  @impl true
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, %{}, opts)
   end
@@ -49,10 +47,11 @@ defmodule RTP_SSE.HashtagsWorker do
 
   @impl true
   def handle_cast({:download_stats}, stats) do
-    sorted
-    = stats
-      |> Map.to_list
-      |> Enum.sort(fn ({_k1, val1}, {_k2, val2}) -> val1 <= val2 end)
+    sorted =
+      stats
+      |> Map.to_list()
+      |> Enum.sort(fn {_k1, val1}, {_k2, val2} -> val1 <= val2 end)
+
     {:ok, file} = File.open("hashtag_stats.json", [:write])
 
     file
@@ -63,16 +62,14 @@ defmodule RTP_SSE.HashtagsWorker do
 
     sorted
     |> Enum.with_index()
-    |> Enum.each(
-         fn {{tag, occurrence}, index} ->
-           # remove last element comma in JSON
-           if index == length(sorted) - 1 do
-             IO.binwrite(file, '\t"#{tag}": #{occurrence}\r\n')
-           else
-             IO.binwrite(file, '\t"#{tag}": #{occurrence},\r\n')
-           end
-         end
-       )
+    |> Enum.each(fn {{tag, occurrence}, index} ->
+      # remove last element comma in JSON
+      if index == length(sorted) - 1 do
+        IO.binwrite(file, '\t"#{tag}": #{occurrence}\r\n')
+      else
+        IO.binwrite(file, '\t"#{tag}": #{occurrence},\r\n')
+      end
+    end)
 
     IO.binwrite(file, "}")
     {:noreply, stats}
@@ -80,16 +77,18 @@ defmodule RTP_SSE.HashtagsWorker do
 
   @impl true
   def handle_cast({:show_stats}, stats) do
-    sorted
-    = stats
-      |> Map.to_list
-      |> Enum.sort(fn ({_k1, val1}, {_k2, val2}) -> val1 <= val2 end)
+    sorted =
+      stats
+      |> Map.to_list()
+      |> Enum.sort(fn {_k1, val1}, {_k2, val2} -> val1 <= val2 end)
+
     Enum.each(
       sorted,
       fn {tag, occurrence} ->
         Logger.info("Tag: #{tag} - Occurrence: #{occurrence}")
       end
     )
+
     {:noreply, stats}
   end
 
@@ -97,29 +96,32 @@ defmodule RTP_SSE.HashtagsWorker do
   def handle_cast({:process_hashtags, tweet}, state) do
     {:ok, json} = Poison.decode(tweet)
     hashtags = json["message"]["tweet"]["entities"]["hashtags"]
+
     if length(hashtags) > 0 do
-      hashtags_text = Enum.map(
-        hashtags,
-        fn x ->
-          x["text"]
-        end
-      )
-      stats = Enum.reduce(
-        hashtags_text,
-        state,
-        fn tag, acc ->
-          if Map.has_key?(state, tag) do
-            Map.put(acc, tag, Map.get(state, tag) + 1)
-          else
-            Map.put(acc, tag, 0)
+      hashtags_text =
+        Enum.map(
+          hashtags,
+          fn x ->
+            x["text"]
           end
-        end
-      )
+        )
+
+      stats =
+        Enum.reduce(
+          hashtags_text,
+          state,
+          fn tag, acc ->
+            if Map.has_key?(state, tag) do
+              Map.put(acc, tag, Map.get(state, tag) + 1)
+            else
+              Map.put(acc, tag, 0)
+            end
+          end
+        )
+
       {:noreply, stats}
     else
       {:noreply, state}
     end
   end
-
-
 end
