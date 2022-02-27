@@ -4,22 +4,12 @@ defmodule RTP_SSE.LoggerWorker do
   if a panic message is received it notify the parent `LoggerRouter` process to kill this
   child worker, otherwise it will just send the message to the socket (client) via `:gen_tcp.send(socket, msg)`
   """
-  import ShorterMaps
+  import Destructure
   use GenServer
   require Logger
 
   def start_link(args, opts \\ []) do
-    state = parse_opts(args)
-    GenServer.start_link(__MODULE__, state, opts)
-  end
-
-  ## Privates
-
-  defp parse_opts(opts) do
-    socket = opts[:socket]
-    routerPID = opts[:routerPID]
-    statisticWorkerPID = opts[:statisticWorkerPID]
-    ~M{socket, routerPID, statisticWorkerPID}
+    GenServer.start_link(__MODULE__, args, opts)
   end
 
   @doc """
@@ -49,20 +39,20 @@ defmodule RTP_SSE.LoggerWorker do
   """
   @impl true
   def handle_cast({:log_tweet, tweet_data}, state) do
-    ~M{socket, routerPID} = state
+    d(%{socket, routerPID, statisticWorkerPID}) = state
 
     msg = parse_tweet(tweet_data)
     start_time = :os.system_time(:milli_seconds)
 
     if msg == :kill_worker do
-      GenServer.cast(routerPID, {:terminate_logger_worker, self()})
+      GenServer.call(routerPID, {:terminate_logger_worker})
     else
       :gen_tcp.send(socket, msg)
       RTP_SSE.HashtagsWorker.process_hashtags(tweet_data)
       Process.sleep(Enum.random(50..500))
       end_time = :os.system_time(:milli_seconds)
       execution_time = end_time - start_time
-      GenServer.cast(state.statisticWorkerPID, {:add_execution_time, execution_time})
+      GenServer.cast(statisticWorkerPID, {:add_execution_time, execution_time})
     end
 
     {:noreply, state}

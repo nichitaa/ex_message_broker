@@ -1,6 +1,6 @@
 defmodule RTP_SSE.StatisticWorker do
 
-  import ShorterMaps
+  import Destructure
   use GenServer
   require Logger
 
@@ -20,7 +20,7 @@ defmodule RTP_SSE.StatisticWorker do
 
   @impl true
   def handle_cast({:reset_stats_loop}, state) do
-    ~M{execution_times, crashes_nr} = state
+    d(%{execution_times, crashes_nr}) = state
 
     if length(execution_times) > 0 do
       first = percentile(execution_times, 75)
@@ -42,8 +42,8 @@ defmodule RTP_SSE.StatisticWorker do
   end
 
   @impl true
-  def handle_cast({:add_worker_crash}, state) do
-    {:noreply, %{state | crashes_nr: state.crashes_nr + 1}}
+  def handle_call({:add_worker_crash}, _from, state) do
+    {:reply, nil, %{state | crashes_nr: state.crashes_nr + 1}}
   end
 
   ## Private
@@ -60,6 +60,7 @@ defmodule RTP_SSE.StatisticWorker do
 
   @doc """
     Compute percentile for a given list and percentile value respectively
+    Reference: https://github.com/msharp/elixir-statistics/blob/897851ffd947e549181e49fcc21fb8b58f106293/lib/statistics.ex#L195
   """
   defp percentile([], _), do: nil
   defp percentile([x], _), do: x

@@ -4,38 +4,25 @@ defmodule RTP_SSE.ReceiverWorker do
   SSEs for a given socket (client), url (SSE endpoint) and router (Receiver will pass the
   event / tweet to it)
   """
-
-  import ShorterMaps
+  import Destructure
   use GenServer
   require Logger
 
   def start_link(args, opts \\ []) do
-    ~M{socket, url, routerPID} = parse_opts(args)
-
-    Logger.info(
-      "[ReceiverWorker] start_link SOCKET=#{inspect(socket)}, routerPID=#{inspect(routerPID)}, url=#{url}"
-    )
-
     {:ok, counterPID} =
       DynamicSupervisor.start_child(
         RTP_SSE.TweetsCounterDynamicSupervisor,
-        {RTP_SSE.TweetsCounter, routerPID: routerPID}
+        {RTP_SSE.TweetsCounter, d(%{routerPID: args.routerPID})}
       )
 
-    GenServer.start_link(__MODULE__, ~M{socket, url, routerPID, counterPID}, opts)
+    state = Map.put(args, :counterPID, counterPID)
+    GenServer.start_link(__MODULE__, state, opts)
   end
 
-  ## Private
-
-  defp parse_opts(opts) do
-    socket = opts[:socket]
-    url = opts[:url]
-    routerPID = opts[:routerPID]
-    ~M{socket, url, routerPID}
-  end
+  ## Privates
 
   defp loop_receive(state) do
-    ~M{socket, routerPID, counterPID} = state
+    d(%{socket, routerPID, counterPID}) = state
     # Recursively wait for new events by defining the `receive` callback
     # and send the received `tweet.data` to the linked router process
     receive do

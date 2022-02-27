@@ -1,12 +1,10 @@
 defmodule RTP_SSE.TweetsCounter do
-  import ShorterMaps
+  import Destructure
   use GenServer
   require Logger
 
-  def start_link(opts) do
-    ~M{routerPID} = parse_opts(opts)
-
-    state = ~M{routerPID, counter: 0}
+  def start_link(args, opts \\ []) do
+    state = Map.put(args, :counter, 0)
     GenServer.start_link(__MODULE__, state, opts)
   end
 
@@ -26,14 +24,7 @@ defmodule RTP_SSE.TweetsCounter do
     )
   end
 
-  ## Private
-
-  defp parse_opts(opts) do
-    routerPID = opts[:routerPID]
-    ~M{routerPID}
-  end
-
-  ## Server callbacks
+  ## Callbacks
 
   @impl true
   def init(state) do
@@ -43,7 +34,7 @@ defmodule RTP_SSE.TweetsCounter do
 
   @impl true
   def handle_cast({:reset_counter}, state) do
-    ~M{routerPID, counter} = state
+    d(%{routerPID, counter}) = state
     GenServer.cast(routerPID, {:autoscale, counter})
     reset_counter_loop()
     {:noreply, %{state | counter: 0}}
