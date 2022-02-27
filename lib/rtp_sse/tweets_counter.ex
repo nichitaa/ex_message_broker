@@ -16,12 +16,10 @@ defmodule RTP_SSE.TweetsCounter do
 
     # Note! `self()` inside the spawn will be the inner process,
     # but we need the counter process
-    spawn(
-      fn ->
-        Process.sleep(1000)
-        GenServer.cast(counterPID, {:reset_counter})
-      end
-    )
+    spawn(fn ->
+      Process.sleep(1000)
+      GenServer.cast(counterPID, {:reset_counter})
+    end)
   end
 
   ## Callbacks
@@ -44,5 +42,4 @@ defmodule RTP_SSE.TweetsCounter do
   def handle_cast({:increment}, state) do
     {:noreply, %{state | counter: state.counter + 1}}
   end
-
 end

@@ -57,5 +57,4 @@ defmodule RTP_SSE.LoggerWorker do
 
     {:noreply, state}
   end
-
 end

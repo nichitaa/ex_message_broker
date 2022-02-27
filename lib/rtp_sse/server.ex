@@ -4,7 +4,6 @@ defmodule RTP_SSE.Server do
   It accepts connections on given port (8080 in my case) and spawns
   other processes (under Task.Supervisor `RTP_SSE.Server.TaskSupervisor`) that servers the requests (`commands`)
   """
-
   require Logger
 
   ## Client API
@@ -25,6 +24,7 @@ defmodule RTP_SSE.Server do
   defp loop_acceptor(socket) do
     {:ok, client} = :gen_tcp.accept(socket)
     Logger.info("[Server #{inspect(self())}] New client SOCKET=#{inspect(socket)}")
+    :gen_tcp.send(client, "Type `twitter` to start processing SSE (from Twitter API)\r\n")
 
     {:ok, pid} =
       Task.Supervisor.start_child(RTP_SSE.Server.TaskSupervisor, fn -> serve(client) end)

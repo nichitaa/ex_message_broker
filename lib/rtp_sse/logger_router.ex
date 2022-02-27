@@ -1,12 +1,11 @@
 defmodule RTP_SSE.LoggerRouter do
   @moduledoc """
   Starts several LoggerWorkers (workers) under the `RTP_SSE.LoggerWorkerDynamicSupervisor`,
-
+  
   It keeps the counter (`index`), socket, refs (for monitoring child workers),
   workers (actual LoggerWorkers) into the state so that it can delegate
   the tweet for a specific worker in a round robin circular order
   """
-
   import Destructure
   use GenServer
   require Logger
@@ -14,10 +13,11 @@ defmodule RTP_SSE.LoggerRouter do
   def start_link(args, opts \\ []) do
     d(%{socket}) = args
 
-    {:ok, statisticWorkerPID} = DynamicSupervisor.start_child(
-      RTP_SSE.StatisticWorkerDynamicSupervisor,
-      RTP_SSE.StatisticWorker
-    )
+    {:ok, statisticWorkerPID} =
+      DynamicSupervisor.start_child(
+        RTP_SSE.StatisticWorkerDynamicSupervisor,
+        RTP_SSE.StatisticWorker
+      )
 
     state = d(%{socket, statisticWorkerPID, index: 0, workers: [], refs: %{}})
     GenServer.start_link(__MODULE__, state, opts)
@@ -35,7 +35,7 @@ defmodule RTP_SSE.LoggerRouter do
   @doc """
   Asynchronously receives a tweet from the Receiver and it sends it to the next worker
   using the Round Robin load balancing technique
-
+  
   request 1 -> worker 1
   request 2 -> worker 2
   request 3 -> worker 1
@@ -44,10 +44,12 @@ defmodule RTP_SSE.LoggerRouter do
   @impl true
   def handle_cast({:route, tweet_data}, state) do
     d(%{workers, index}) = state
+
     if length(workers) > 0 do
       Enum.at(workers, rem(index, length(workers)))
       |> GenServer.cast({:log_tweet, tweet_data})
     end
+
     {:noreply, %{state | index: index + 1}}
   end
 
@@ -96,12 +98,17 @@ defmodule RTP_SSE.LoggerRouter do
       {:message_queue_len, len} when len > 0 ->
         # Logger.info("[LoggerRouter #{inspect(self())}] KILL WORKER=#{inspect(workerPID)} AFTER SOME TIME | q=#{len}")
         Process.send_after(self(), {:kill_child_worker, workerPID}, 4000)
+
       {:message_queue_len, len} when len == 0 ->
         # Logger.info("[LoggerRouter #{inspect(self())}] KILL WORKER=#{inspect(workerPID)} | q=#{len}")
         DynamicSupervisor.terminate_child(RTP_SSE.LoggerWorkerDynamicSupervisor, workerPID)
+
       _ ->
-      # Logger.info("[LoggerRouter #{inspect(self())}] WORKER ALREADY KILLED #{inspect(workerPID)}")
+        nil
+
+        # Logger.info("[LoggerRouter #{inspect(self())}] WORKER ALREADY KILLED #{inspect(workerPID)}")
     end
+
     {:noreply, state}
   end
 
@@ -126,17 +133,21 @@ defmodule RTP_SSE.LoggerRouter do
       expect_workers_no = div(cnt, 5) + 1
       current_workers_no = length(state.workers)
       diff = expect_workers_no - current_workers_no
+
       case diff do
         n when n > 0 ->
           # add some new workers
           send(self(), {:add_logger_workers, diff})
+
         n when n < 0 ->
           # remove some workers
           send(self(), {:remove_logger_workers, -diff})
+
         _ ->
-        # Logger.info("[LoggerRouter #{inspect(self())}] leaving same number of workers=#{length(state.workers)}")
+          nil
       end
     end
+
     {:noreply, state}
   end
 
@@ -146,6 +157,7 @@ defmodule RTP_SSE.LoggerRouter do
   @impl true
   def handle_info({:add_logger_workers, nr}, state) do
     d(%{socket, statisticWorkerPID, refs, workers}) = state
+
     logger_workers =
       Enum.map(
         0..nr,
@@ -158,19 +170,27 @@ defmodule RTP_SSE.LoggerRouter do
                 d(%{socket, statisticWorkerPID, routerPID: self()})
               }
             )
+
           workerPID
         end
       )
-    refs = Enum.reduce(
-      logger_workers,
-      refs,
-      fn pid, acc ->
-        ref = Process.monitor(pid)
-        Map.put(acc, ref, pid)
-      end
-    )
+
+    refs =
+      Enum.reduce(
+        logger_workers,
+        refs,
+        fn pid, acc ->
+          ref = Process.monitor(pid)
+          Map.put(acc, ref, pid)
+        end
+      )
+
     workers = Enum.concat(workers, logger_workers)
-    Logger.info("[LoggerRouter #{inspect(self())}] added #{nr} workers, current=#{length(workers)}")
+
+    Logger.info(
+      "[LoggerRouter #{inspect(self())}] added #{nr} workers, current=#{length(workers)}"
+    )
+
     {:noreply, %{state | refs: refs, workers: workers}}
   end
 
@@ -193,7 +213,11 @@ defmodule RTP_SSE.LoggerRouter do
 
     # remove workers from the state, so they will not receive more messages to queue
     workers = Enum.reject(workers, fn x -> x in logger_workers_to_remove end)
-    Logger.info("[LoggerRouter #{inspect(self())}] removed #{nr} workers, current=#{length(workers)}")
+
+    Logger.info(
+      "[LoggerRouter #{inspect(self())}] removed #{nr} workers, current=#{length(workers)}"
+    )
+
     {:noreply, %{state | workers: workers}}
   end
 
