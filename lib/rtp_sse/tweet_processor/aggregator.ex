@@ -8,115 +8,125 @@ defmodule TweetProcessor.Aggregator do
   @flush_time 3000 # flush / save tweets every 3 sec
 
   def start_link(opts \\ []) do
-    state = %{tweets: [], count: 0, refs: %{}, engagementWorkers: [], sentimentsWorkers: [], index: 0}
+    state = %{
+      tweets: [],
+      users: [],
+      engagementWorkers: [],
+      sentimentsWorkers: [],
+      refs: %{},
+      count: 0,
+      index: 0
+    }
     GenServer.start_link(__MODULE__, state, opts)
   end
 
   ## Client API
 
   @doc """
-    Function used by workers in order to save tweet to `Aggregator` state
+    Function used by `LoggerWorkers` in order to save tweet data to `Aggregator` state
   """
-  def add_tweet(tweet) do
-    GenServer.cast(__MODULE__, {:add_tweet, tweet})
+  def process_tweet(aggregatorPID, tweet_data) do
+    GenServer.cast(aggregatorPID, {:process_tweet, tweet_data})
   end
 
   ## Privates
 
-  @doc """
-    Will constantly save tweets to database in a 3 sec timeframe,
-    using only the @max_batch_size will produce data loss if the last
-    batch has less elements then our max size
-  """
-  defp flush_tweets_loop() do
+  defp flush_state_loop() do
+    # Will constantly save tweets & users into database in a 3 sec timeframe,
+    # using only the @max_batch_size will produce data loss if the last
+    # batch has less elements then our max size
     selfPID = self()
     spawn(
       fn ->
         Process.sleep(@flush_time)
-        GenServer.cast(selfPID, {:flush_tweets})
+        GenServer.cast(selfPID, {:flush_state})
       end
     )
   end
 
-  @doc """
-    Utility function that passes the data (tweets)
-    to our DB service to save it into db
-  """
+  # Utility functions that transmits the data to be saved in database by `DBService`
   defp save_tweets(data) do
-    TweetProcessor.DBService.bulk_insert(data)
+    TweetProcessor.DBService.bulk_insert_tweets(data)
+  end
+
+  defp save_users(data) do
+    TweetProcessor.DBService.bulk_insert_users(data)
   end
 
   ## Callbacks
 
   @impl true
   def init(state) do
-    flush_tweets_loop()
+    flush_state_loop()
     send(self(), {:add_workers, 5})
     {:ok, state}
   end
 
   @impl true
-  def handle_cast({:add_tweet, tweet}, state) do
-    d(%{tweets, count, engagementWorkers, index, sentimentsWorkers}) = state
-
-    tweet_to_save = %{raw_tweet: tweet}
+  def handle_cast({:process_tweet, tweet_data}, state) do
+    d(%{tweets, users, count, engagementWorkers, index, sentimentsWorkers}) = state
 
     # treating retweeted_status as separate tweet
-    retweeted_tweet = tweet["message"]["tweet"]["retweeted_status"]
+    retweeted_tweet = tweet_data["message"]["tweet"]["retweeted_status"]
     if retweeted_tweet != nil do
       retweeted_tweet = %{
         "message" => %{
           "tweet" => retweeted_tweet
         }
       }
-      GenServer.cast(self(), {:add_tweet, retweeted_tweet})
+      GenServer.cast(self(), {:process_tweet, retweeted_tweet})
     end
 
-    tweet_to_save =
+    tweet =
       if length(engagementWorkers) > 0 and length(sentimentsWorkers) > 0 do
         # round robin for engagement and sentiments workers
         engagement_result
         = engagementWorkers
           |> Enum.at(rem(index, length(engagementWorkers)))
-          |> GenServer.call({:engagement, tweet})
+          |> GenServer.call({:engagement, tweet_data})
 
         sentiments_result
         = sentimentsWorkers
           |> Enum.at(rem(index, length(sentimentsWorkers)))
-          |> GenServer.call({:sentiments, tweet})
+          |> GenServer.call({:sentiments, tweet_data})
 
-        # update tweet_to_save
-        updated = d(
+        # update tweet
+        d(
           %{
             engagement_result,
             sentiments_result,
+            original: tweet_data,
+            text: tweet_data["message"]["tweet"]["text"],
             engagement_score: engagement_result.score,
             sentiments_score: sentiments_result.score
           }
         )
-        Map.merge(tweet_to_save, updated)
       end
 
     count = count + 1
-    tweets = [tweet_to_save | tweets]
+    user = tweet_data["message"]["tweet"]["user"]
+    tweets = [tweet | tweets]
+    users = [user | users]
 
     if count > @max_batch_size do
-      save_tweets(state.tweets)
-      {:noreply, %{state | tweets: [], count: 0}}
+      save_tweets(tweets)
+      save_users(users)
+      {:noreply, %{state | tweets: [], users: [], count: 0}}
     else
-      {:noreply, %{state | tweets: tweets, count: count}}
+      {:noreply, %{state | tweets: tweets, users: users, count: count}}
     end
 
   end
 
   @impl true
-  def handle_cast({:flush_tweets}, state) do
-    d(%{tweets, count}) = state
+  def handle_cast({:flush_state}, state) do
+    d(%{tweets, users, count}) = state
     if count > 0 do
       save_tweets(tweets)
+      save_users(users)
     end
-    flush_tweets_loop()
-    {:noreply, %{state | tweets: [], count: 0}}
+    flush_state_loop()
+    {:noreply, %{state | tweets: [], users: [], count: 0}}
   end
 
   @impl true
@@ -126,7 +136,7 @@ defmodule TweetProcessor.Aggregator do
     engagement_workers =
       Enum.map(
         0..nr,
-        fn x ->
+        fn _ ->
           {:ok, engagementWorkerPID} = DynamicSupervisor.start_child(
             TweetProcessor.EngagementWorkerSupervisor,
             TweetProcessor.EngagementWorker
@@ -137,7 +147,7 @@ defmodule TweetProcessor.Aggregator do
 
     sentiments_workers = Enum.map(
       0..nr,
-      fn x ->
+      fn _ ->
         {:ok, sentimentsWorkerPID} = DynamicSupervisor.start_child(
           TweetProcessor.SentimentWorkerSupervisor,
           TweetProcessor.SentimentWorker
@@ -167,7 +177,7 @@ defmodule TweetProcessor.Aggregator do
   end
 
   @impl true
-  def handle_info({:DOWN, ref, :process, workerPID, _reason}, state) do
+  def handle_info({:DOWN, ref, :process, _workerPID, _reason}, state) do
     {_prev, refs} = Map.pop(state.refs, ref)
     {:noreply, %{state | refs: refs}}
   end
