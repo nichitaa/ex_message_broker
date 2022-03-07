@@ -61,6 +61,17 @@ defmodule TweetProcessor.Aggregator do
 
     tweet_to_save = %{raw_tweet: tweet}
 
+    # treating retweeted_status as separate tweet
+    retweeted_tweet = tweet["message"]["tweet"]["retweeted_status"]
+    if retweeted_tweet != nil do
+      retweeted_tweet = %{
+        "message" => %{
+          "tweet" => retweeted_tweet
+        }
+      }
+      GenServer.cast(self(), {:add_tweet, retweeted_tweet})
+    end
+
     tweet_to_save =
       if length(engagementWorkers) > 0 and length(sentimentsWorkers) > 0 do
         # round robin for engagement and sentiments workers
@@ -75,17 +86,15 @@ defmodule TweetProcessor.Aggregator do
           |> GenServer.call({:sentiments, tweet})
 
         # update tweet_to_save
-        Map.merge(
-          tweet_to_save,
-          d(
-            %{
-              engagement_result,
-              sentiments_result,
-              engagement_score: engagement_result.score,
-              sentiments_score: sentiments_result.score
-            }
-          )
+        updated = d(
+          %{
+            engagement_result,
+            sentiments_result,
+            engagement_score: engagement_result.score,
+            sentiments_score: sentiments_result.score
+          }
         )
+        Map.merge(tweet_to_save, updated)
       end
 
     count = count + 1
