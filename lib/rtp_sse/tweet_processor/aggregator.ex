@@ -8,7 +8,7 @@ defmodule TweetProcessor.Aggregator do
   @flush_time 3000 # flush / save tweets every 3 sec
 
   def start_link(opts \\ []) do
-    state = %{tweets: [], count: 0, refs: %{}, engagementWorkers: [], index: 0}
+    state = %{tweets: [], count: 0, refs: %{}, engagementWorkers: [], sentimentsWorkers: [], index: 0}
     GenServer.start_link(__MODULE__, state, opts)
   end
 
@@ -57,17 +57,35 @@ defmodule TweetProcessor.Aggregator do
 
   @impl true
   def handle_cast({:add_tweet, tweet}, state) do
-    d(%{tweets, count, engagementWorkers, index}) = state
+    d(%{tweets, count, engagementWorkers, index, sentimentsWorkers}) = state
 
     tweet_to_save = %{raw_tweet: tweet}
 
     tweet_to_save =
-      if length(engagementWorkers) > 0 do
-        # round robin
-        nextEngagementWorkerPID = Enum.at(engagementWorkers, rem(index, length(engagementWorkers)))
-        score = GenServer.call(nextEngagementWorkerPID, {:engagement, tweet})
+      if length(engagementWorkers) > 0 and length(sentimentsWorkers) > 0 do
+        # round robin for engagement and sentiments workers
+        engagement_result
+        = engagementWorkers
+          |> Enum.at(rem(index, length(engagementWorkers)))
+          |> GenServer.call({:engagement, tweet})
+
+        sentiments_result
+        = sentimentsWorkers
+          |> Enum.at(rem(index, length(sentimentsWorkers)))
+          |> GenServer.call({:sentiments, tweet})
+
         # update tweet_to_save
-        Map.put(tweet_to_save, :engagement_score, score)
+        Map.merge(
+          tweet_to_save,
+          d(
+            %{
+              engagement_result,
+              sentiments_result,
+              engagement_score: engagement_result.score,
+              sentiments_score: sentiments_result.score
+            }
+          )
+        )
       end
 
     count = count + 1
@@ -94,8 +112,8 @@ defmodule TweetProcessor.Aggregator do
 
   @impl true
   def handle_info({:add_workers, nr}, state) do
-    Logger.info("[Aggregator #{inspect(self())}] adding #{inspect(nr)} engagement workers")
-    d(%{engagementWorkers, refs}) = state
+    d(%{engagementWorkers, sentimentsWorkers, refs}) = state
+
     engagement_workers =
       Enum.map(
         0..nr,
@@ -107,8 +125,25 @@ defmodule TweetProcessor.Aggregator do
           engagementWorkerPID
         end
       )
+
+    sentiments_workers = Enum.map(
+      0..nr,
+      fn x ->
+        {:ok, sentimentsWorkerPID} = DynamicSupervisor.start_child(
+          TweetProcessor.SentimentWorkerSupervisor,
+          TweetProcessor.SentimentWorker
+        )
+        sentimentsWorkerPID
+      end
+    )
+
+    Logger.info("[Aggregator #{inspect(self())}] added #{inspect(nr)} engagement and statistics workers")
+
+    # monitor both engagement and sentiments workers
+    child_workers = Enum.concat(engagement_workers, sentiments_workers)
+
     refs = Enum.reduce(
-      engagement_workers,
+      child_workers,
       refs,
       fn pid, acc ->
         ref = Process.monitor(pid)
@@ -117,8 +152,9 @@ defmodule TweetProcessor.Aggregator do
     )
 
     engagementWorkers = Enum.concat(engagementWorkers, engagement_workers)
+    sentimentsWorkers = Enum.concat(sentimentsWorkers, sentiments_workers)
 
-    {:noreply, %{state | refs: refs, engagementWorkers: engagementWorkers}}
+    {:noreply, %{state | refs: refs, engagementWorkers: engagementWorkers, sentimentsWorkers: sentimentsWorkers}}
   end
 
   @impl true

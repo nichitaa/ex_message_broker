@@ -45,8 +45,9 @@ defmodule RTP_SSE do
       {RTP_SSE.HashtagsWorker, name: RTP_SSE.HashtagsWorker},
       {TweetProcessor.DBService, name: TweetProcessor.DBService},
 
-      # Aggregator Supervisor | Engagement worker
+      # Aggregator Supervisor & Engagement workers Supervisor & Sentiments worker Supervisor
       {DynamicSupervisor, name: TweetProcessor.EngagementWorkerSupervisor, strategy: :one_for_one},
+      {DynamicSupervisor, name: TweetProcessor.SentimentWorkerSupervisor, strategy: :one_for_one},
       {DynamicSupervisor, name: TweetProcessor.AggregatorDynamicSupervisor, strategy: :one_for_one},
       # Server
       {Task.Supervisor, name: RTP_SSE.Server.TaskSupervisor},
