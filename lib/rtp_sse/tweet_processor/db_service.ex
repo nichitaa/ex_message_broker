@@ -8,8 +8,8 @@ defmodule TweetProcessor.DBService do
   use GenServer
   require Logger
 
-  @collection "tweets"
-  @max_bulk_size 500
+  @collection "tweets" # collection name
+  @max_bulk_size 500   # Mongo max bulk size for 1000 documents bulk upload
 
   def start_link(opts \\ []) do
     {:ok, connectionPID} = Mongo.start_link(url: "mongodb://localhost:27017/rtp_sse_db")
@@ -18,6 +18,9 @@ defmodule TweetProcessor.DBService do
 
   ## Client API
 
+  @doc """
+    Saves the passed `data` into MongoDB
+  """
   def bulk_insert(data) do
     GenServer.cast(TweetProcessor.DBService, {:bulk_insert, data})
   end

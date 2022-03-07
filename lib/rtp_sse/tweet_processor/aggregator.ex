@@ -4,7 +4,7 @@ defmodule TweetProcessor.Aggregator do
   use GenServer
   require Logger
 
-  @max_batch_size 1000
+  @max_batch_size 1000 # tweets limit
 
   def start_link(opts \\ []) do
     state = %{tweets: [], count: 0}
@@ -13,14 +13,43 @@ defmodule TweetProcessor.Aggregator do
 
   ## Client API
 
+  @doc """
+    Function used by workers in order to save tweet to `Aggregator` state
+  """
   def add_tweet(tweet) do
     GenServer.cast(__MODULE__, {:add_tweet, tweet})
+  end
+
+  ## Privates
+
+  @doc """
+    Will constantly save tweets to database in a 3 sec timeframe,
+    using only the @max_batch_size will produce data loss if the last
+    batch has less elements then our max size
+  """
+  defp flush_tweets_loop() do
+    selfPID = self()
+    spawn(
+      fn ->
+        Process.sleep(3000)
+        GenServer.cast(selfPID, {:flush_tweets})
+      end
+    )
+  end
+
+  @doc """
+    Utility function that passes the data (tweets)
+    to our DB service to save it into db
+  """
+  defp save_tweets(data) do
+    TweetProcessor.DBService.bulk_insert(data)
   end
 
   ## Callbacks
 
   @impl true
   def init(state) do
+    flush_tweets_loop()
     {:ok, state}
   end
 
@@ -31,12 +60,22 @@ defmodule TweetProcessor.Aggregator do
     tweets = [tweet | tweets]
 
     if count > @max_batch_size do
-      TweetProcessor.DBService.bulk_insert(state.tweets)
+      save_tweets(state.tweets)
       {:noreply, %{tweets: [], count: 0}}
     else
       {:noreply, d(%{tweets, count})}
     end
 
+  end
+
+  @impl true
+  def handle_cast({:flush_tweets}, state) do
+    d(%{tweets, count}) = state
+    if count > 0 do
+      save_tweets(tweets)
+    end
+    flush_tweets_loop()
+    {:noreply, %{tweets: [], count: 0}}
   end
 
 end
