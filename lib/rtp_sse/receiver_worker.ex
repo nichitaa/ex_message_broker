@@ -4,6 +4,9 @@ defmodule RTP_SSE.ReceiverWorker do
   SSEs for a given socket (client), url (SSE endpoint) and router (Receiver will pass the
   event / tweet to it)
   """
+
+  @sse_receive_delay 1000 # start receiving SSE after 1 sec
+
   import Destructure
   use GenServer
   require Logger
@@ -37,8 +40,10 @@ defmodule RTP_SSE.ReceiverWorker do
 
   @impl true
   def init(state) do
-    # will invoke handle_info(:start_receiver_worker) after 200 ms
-    Process.send_after(self(), :start_receiver_worker, 200)
+    # will invoke handle_info(:start_receiver_worker) after 1 sec
+    # this delay is required because other actors (like: Router)
+    # are starting child workers with some delay too
+    Process.send_after(self(), :start_receiver_worker, @sse_receive_delay)
     {:ok, state}
   end
 

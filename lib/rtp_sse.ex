@@ -44,7 +44,10 @@ defmodule RTP_SSE do
       {DynamicSupervisor, name: RTP_SSE.StatisticWorkerDynamicSupervisor, strategy: :one_for_one},
       {RTP_SSE.HashtagsWorker, name: RTP_SSE.HashtagsWorker},
       {TweetProcessor.DBService, name: TweetProcessor.DBService},
-      {TweetProcessor.Aggregator, name: TweetProcessor.Aggregator},
+
+      # Aggregator Supervisor | Engagement worker
+      {DynamicSupervisor, name: TweetProcessor.EngagementWorkerSupervisor, strategy: :one_for_one},
+      {DynamicSupervisor, name: TweetProcessor.AggregatorDynamicSupervisor, strategy: :one_for_one},
       # Server
       {Task.Supervisor, name: RTP_SSE.Server.TaskSupervisor},
       Supervisor.child_spec({Task, fn -> RTP_SSE.Server.accept(8080) end}, restart: :permanent)

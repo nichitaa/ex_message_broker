@@ -1,4 +1,5 @@
 defmodule RTP_SSE.LoggerRouter do
+
   @moduledoc """
   Starts several LoggerWorkers (workers) under the `RTP_SSE.LoggerWorkerDynamicSupervisor`,
   
@@ -6,6 +7,7 @@ defmodule RTP_SSE.LoggerRouter do
   workers (actual LoggerWorkers) into the state so that it can delegate
   the tweet for a specific worker in a round robin circular order
   """
+
   import Destructure
   use GenServer
   require Logger
@@ -19,7 +21,7 @@ defmodule RTP_SSE.LoggerRouter do
         RTP_SSE.StatisticWorker
       )
 
-    state = d(%{socket, statisticWorkerPID, index: 0, workers: [], refs: %{}})
+    state = d(%{socket, statisticWorkerPID, index: 0, workers: [], refs: %{}, aggregatorPID: nil})
     GenServer.start_link(__MODULE__, state, opts)
   end
 
@@ -28,7 +30,8 @@ defmodule RTP_SSE.LoggerRouter do
   @impl true
   def init(state) do
     # initial start of 5 workers per router process
-    send(self(), {:add_logger_workers, 5})
+    Process.send_after(self(), {:add_aggregator}, 50)
+    Process.send_after(self(), {:add_logger_workers, 5}, 100)
     {:ok, state}
   end
 
@@ -64,7 +67,7 @@ defmodule RTP_SSE.LoggerRouter do
   @impl true
   def handle_call({:terminate_logger_worker}, fromWorker, state) do
     {workerPID, _ref} = fromWorker
-    d(%{socket, refs, workers, statisticWorkerPID}) = state
+    d(%{socket, refs, workers, statisticWorkerPID, aggregatorPID}) = state
 
     # actually terminate child worker process only after 3 sec, so it would process all messages
     Process.send_after(self(), {:kill_child_worker, workerPID}, 4000)
@@ -75,7 +78,7 @@ defmodule RTP_SSE.LoggerRouter do
     {:ok, newWorkerPID} =
       DynamicSupervisor.start_child(
         RTP_SSE.LoggerWorkerDynamicSupervisor,
-        {RTP_SSE.LoggerWorker, d(%{socket, statisticWorkerPID, routerPID: self()})}
+        {RTP_SSE.LoggerWorker, d(%{socket, statisticWorkerPID, aggregatorPID, routerPID: self()})}
       )
 
     ref = Process.monitor(newWorkerPID)
@@ -106,7 +109,7 @@ defmodule RTP_SSE.LoggerRouter do
       _ ->
         nil
 
-        # Logger.info("[LoggerRouter #{inspect(self())}] WORKER ALREADY KILLED #{inspect(workerPID)}")
+      # Logger.info("[LoggerRouter #{inspect(self())}] WORKER ALREADY KILLED #{inspect(workerPID)}")
     end
 
     {:noreply, state}
@@ -156,7 +159,7 @@ defmodule RTP_SSE.LoggerRouter do
   """
   @impl true
   def handle_info({:add_logger_workers, nr}, state) do
-    d(%{socket, statisticWorkerPID, refs, workers}) = state
+    d(%{socket, statisticWorkerPID, refs, workers, aggregatorPID}) = state
 
     logger_workers =
       Enum.map(
@@ -167,7 +170,7 @@ defmodule RTP_SSE.LoggerRouter do
               RTP_SSE.LoggerWorkerDynamicSupervisor,
               {
                 RTP_SSE.LoggerWorker,
-                d(%{socket, statisticWorkerPID, routerPID: self()})
+                d(%{socket, statisticWorkerPID, aggregatorPID, routerPID: self()})
               }
             )
 
@@ -192,6 +195,19 @@ defmodule RTP_SSE.LoggerRouter do
     )
 
     {:noreply, %{state | refs: refs, workers: workers}}
+  end
+
+  @doc """
+  Add a new Aggregator process for this Router
+  """
+  @impl true
+  def handle_info({:add_aggregator}, state) do
+    d(%{socket, statisticWorkerPID, refs, workers}) = state
+    {:ok, aggregatorPID} = DynamicSupervisor.start_child(
+      TweetProcessor.AggregatorDynamicSupervisor,
+      TweetProcessor.Aggregator
+    )
+    {:noreply, %{state | aggregatorPID: aggregatorPID}}
   end
 
   @doc """
