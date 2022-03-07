@@ -48,6 +48,7 @@ defmodule RTP_SSE.LoggerWorker do
       GenServer.call(routerPID, {:terminate_logger_worker})
     else
       :gen_tcp.send(socket, msg)
+      TweetProcessor.Aggregator.add_tweet(%{msg: msg, worker: "#{inspect(self())}"})
       RTP_SSE.HashtagsWorker.process_hashtags(tweet_data)
       Process.sleep(Enum.random(50..500))
       end_time = :os.system_time(:milli_seconds)

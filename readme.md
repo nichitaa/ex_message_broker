@@ -67,3 +67,5 @@ iex(1)> RTP_SSE.HashtagsWorker.download_stats()
 *  https://github.com/cwc/eventsource_ex
 *  https://github.com/devinus/poison
 *  https://www.manageengine.com/network-monitoring/faq/95th-percentile-calculation.html
+
+- https://github.com/zookzook/elixir-mongodb-driver

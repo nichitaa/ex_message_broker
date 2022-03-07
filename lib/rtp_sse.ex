@@ -30,16 +30,21 @@ defmodule RTP_SSE do
       # just constantly kills our workers !!
       {
         DynamicSupervisor,
-        name: RTP_SSE.LoggerWorkerDynamicSupervisor, strategy: :one_for_one, max_restarts: 100
+        name: RTP_SSE.LoggerWorkerDynamicSupervisor,
+        strategy: :one_for_one,
+        max_restarts: 100
       },
       # Each client connection will start a LoggerRouter process
       {DynamicSupervisor, name: RTP_SSE.LoggerRouterDynamicSupervisor, strategy: :one_for_one},
       # Dynamic supervisor for the ReceiverWorker (handles sse for subscribers)
       {DynamicSupervisor, name: RTP_SSE.ReceiverWorkerDynamicSupervisor, strategy: :one_for_one},
       # Tweets counter supervisor, required for autoscaling the workers
+
       {DynamicSupervisor, name: RTP_SSE.TweetsCounterDynamicSupervisor, strategy: :one_for_one},
       {DynamicSupervisor, name: RTP_SSE.StatisticWorkerDynamicSupervisor, strategy: :one_for_one},
       {RTP_SSE.HashtagsWorker, name: RTP_SSE.HashtagsWorker},
+      {TweetProcessor.DBService, name: TweetProcessor.DBService},
+      {TweetProcessor.Aggregator, name: TweetProcessor.Aggregator},
       # Server
       {Task.Supervisor, name: RTP_SSE.Server.TaskSupervisor},
       Supervisor.child_spec({Task, fn -> RTP_SSE.Server.accept(8080) end}, restart: :permanent)
