@@ -18,10 +18,10 @@ defmodule RTP_SSE.LoggerWorker do
   """
   defp parse_tweet(data) do
     if data == "{\"message\": panic}" do
-      :kill_worker
+      {:kill_worker}
     else
       {:ok, json} = Poison.decode(data)
-      "tweet: worker-#{inspect(self())}" <> " " <> json["message"]["tweet"]["text"] <> "\r\n"
+      {:ok, json, "tweet: worker-#{inspect(self())}" <> " " <> json["message"]["tweet"]["text"] <> "\r\n"}
     end
   end
 
@@ -41,19 +41,20 @@ defmodule RTP_SSE.LoggerWorker do
   def handle_cast({:log_tweet, tweet_data}, state) do
     d(%{socket, routerPID, statisticWorkerPID}) = state
 
-    msg = parse_tweet(tweet_data)
     start_time = :os.system_time(:milli_seconds)
 
-    if msg == :kill_worker do
-      GenServer.call(routerPID, {:terminate_logger_worker})
-    else
-      :gen_tcp.send(socket, msg)
-      TweetProcessor.Aggregator.add_tweet(%{msg: msg, worker: "#{inspect(self())}"})
-      RTP_SSE.HashtagsWorker.process_hashtags(tweet_data)
-      Process.sleep(Enum.random(50..500))
-      end_time = :os.system_time(:milli_seconds)
-      execution_time = end_time - start_time
-      GenServer.cast(statisticWorkerPID, {:add_execution_time, execution_time})
+    case parse_tweet(tweet_data) do
+      {:kill_worker} ->
+        GenServer.call(routerPID, {:terminate_logger_worker})
+      {:ok, parsed, message} ->
+        :gen_tcp.send(socket, message)
+        TweetProcessor.Aggregator.add_tweet(%{raw_tweet: parsed, worker: "#{inspect(self())}"})
+        RTP_SSE.HashtagsWorker.process_hashtags(tweet_data)
+        Process.sleep(Enum.random(50..500))
+        end_time = :os.system_time(:milli_seconds)
+        execution_time = end_time - start_time
+        GenServer.cast(statisticWorkerPID, {:add_execution_time, execution_time})
+      _ -> nil
     end
 
     {:noreply, state}

@@ -5,6 +5,7 @@ defmodule TweetProcessor.Aggregator do
   require Logger
 
   @max_batch_size 1000 # tweets limit
+  @flush_time 3000 # flush / save tweets every 3 sec
 
   def start_link(opts \\ []) do
     state = %{tweets: [], count: 0}
@@ -31,7 +32,7 @@ defmodule TweetProcessor.Aggregator do
     selfPID = self()
     spawn(
       fn ->
-        Process.sleep(3000)
+        Process.sleep(@flush_time)
         GenServer.cast(selfPID, {:flush_tweets})
       end
     )
