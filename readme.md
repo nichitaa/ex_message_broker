@@ -65,12 +65,13 @@ iex(1)> RTP_SSE.HashtagsWorker.download_stats()
 
 ### **References**
 
-*  https://elixir-lang.org/getting-started/mix-otp/task-and-gen-tcp.html
-*  https://hexdocs.pm/elixir/1.13.2/DynamicSupervisor.html
-*  https://medium.com/finally-functional/elixir-pubsub-tcp-with-gproc-broadcasting-ca20b59f12d6
-*  https://github.com/Xetera/load-balancer
-*  https://github.com/cwc/eventsource_ex
-*  https://github.com/devinus/poison
-*  https://www.manageengine.com/network-monitoring/faq/95th-percentile-calculation.html
+*  [elixir-lang - `Task` and `:gen_tcp`](https://elixir-lang.org/getting-started/mix-otp/task-and-gen-tcp.html) 
+*  [HexDocs - `DynamicSupervisor`](https://hexdocs.pm/elixir/1.13.2/DynamicSupervisor.html)
+*  [Medium - Elixir Pubsub TCP with `gproc` Broadcasting](https://medium.com/finally-functional/elixir-pubsub-tcp-with-gproc-broadcasting-ca20b59f12d6)
+*  [GitHub - A simple round robin load balancer implementation in Elixir](https://github.com/Xetera/load-balancer)
+*  [GitHub -`:eventsource_ex` Elixir `EventSource` (Server-Sent Events) client](https://github.com/cwc/eventsource_ex)
+*  [GitHub - `:poison` - An incredibly fast, pure Elixir JSON library](https://github.com/devinus/poison)
+*  [Manageengine - Percentile Calculation](https://www.manageengine.com/network-monitoring/faq/95th-percentile-calculation.html)
 
-- https://github.com/zookzook/elixir-mongodb-driver
+- [GitHub - `:mongodb_driver` - An alternative Elixir driver for MongoDB](https://github.com/zookzook/elixir-mongodb-driver)
+- [GitHub - `elixir-statistics` - Statistical functions and distributions for Elixir](https://github.com/msharp/elixir-statistics)
