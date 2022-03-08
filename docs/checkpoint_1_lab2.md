@@ -14,6 +14,7 @@
 
 ### `Aggregator`
 Is started by the `Router` actor, under `TweetProcessor.AggregatorDynamicSupervisor` supervisor. So for each `Router` there will be an active `Aggregator` process.
+
 **What it does?** 
 
 1. Starts a few workers (described in section bellow) that will further process the tweet 
