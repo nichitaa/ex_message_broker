@@ -6,6 +6,11 @@
 
 
 
+See `/docs` folder for actors description
+
+-  [`RTP_SSE` (Core actors)](./docs/checkpoint_1.md)
+- [`TweetProcessor` (Tweet analyzers actors)](./docs/checkpoint_1_lab2.md)
+
 ### **Usage**
 
 ```bash
@@ -56,7 +61,7 @@ iex(1)> RTP_SSE.HashtagsWorker.download_stats()
 
 ### **Inspect `Elixir` Observer tool**
 
-![observer_v2](./assets/observer3.jpg)
+![observer_v2](./assets/observer_v2.png)
 
 ### **References**
 

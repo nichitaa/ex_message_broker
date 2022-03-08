@@ -2,19 +2,20 @@
 
 > Pasecinic Nichita
 >
-> Checkpoint 1
+> Checkpoint 1 - 07.08.2022
 >
 > Real-Time Programming in `Elixir`
 
 
 
-### [Core actors are described here](./checkpoint_1.md)
+### **[`RTP_SSE` Core Actors ](./checkpoint_1.md)**
 
 ### **`TweetProcessor` Actors**
 
 ### `Aggregator`
 Is started by the `Router` actor, under `TweetProcessor.AggregatorDynamicSupervisor` supervisor. So for each `Router` there will be an active `Aggregator` process.
 **What it does?** 
+
 1. Starts a few workers (described in section bellow) that will further process the tweet 
 2. It receives raw `tweet_data`, it passes it its' workers in order to compute some score values based on tweet itself and it accumulates those `score` values
 3. Passes the aggregated `tweets`, `users` (from state) to database service once it reaches its' internal size limit for number of processed tweets (`@max_batch_size 1000`)
@@ -63,3 +64,7 @@ twitter
 ### **Extended with**
 
 ![supervisor-extended](./../assets/supervisor_diagram_extended.png)
+
+### **Message exchange** (only for extended supervisor diagram)
+
+![supervisor-extended](./../assets/message_exchange_2.png)
