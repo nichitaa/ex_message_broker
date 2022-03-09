@@ -20,7 +20,7 @@ Is started by the `Router` actor, under `TweetProcessor.AggregatorDynamicSupervi
 1. Starts a few workers (described in section bellow) that will further process the tweet 
 2. It receives raw `tweet_data`, it passes it its' workers in order to compute some score values based on tweet itself and it accumulates those `score` values
 3. Passes the aggregated `tweets`, `users` (from state) to database service once it reaches its' internal size limit for number of processed tweets (`@max_batch_size 1000`)
-4. Has a infinite recursive loop for fleshing that does the above task (3) but this time using a configurable timeframe `@flush_time 3000` (actually 3 seconds is too small for a batch of 1k, probably will increase it). This flush loop is required in order not to loose data if the last chunk of processed tweets is less then `@max_batch_size`
+4. Has a infinite recursive loop that does the above task (3) but this time using a configurable timeframe `@flush_time 3000` (actually 3 seconds is too small for a batch of 1k, probably will increase it). This flush loop is required in order not to loose data if the last chunk of processed tweets is less then `@max_batch_size`
 
 ### `EngagementWorker`
 Simple worker used by `Aggregator` parent process. It calculates the engagement score of a tweet based on the following formula `score = (favorites + retweets) / followers`, it returns back to `Aggregator` the score together with all formula arguments.
