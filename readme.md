@@ -59,10 +59,6 @@ iex(1)> RTP_SSE.HashtagsWorker.download_stats()
 
 
 
-### **Inspect `Elixir` Observer tool**
-
-![observer_v2](./assets/observer_v2.png)
-
 ### **References**
 
 *  [elixir-lang - `Task` and `:gen_tcp`](https://elixir-lang.org/getting-started/mix-otp/task-and-gen-tcp.html) 
