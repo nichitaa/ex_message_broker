@@ -34,21 +34,35 @@ defmodule RTP_SSE do
         strategy: :one_for_one,
         max_restarts: 100
       },
+
       # Each client connection will start a LoggerRouter process
       {DynamicSupervisor, name: RTP_SSE.LoggerRouterDynamicSupervisor, strategy: :one_for_one},
+
       # Dynamic supervisor for the ReceiverWorker (handles sse for subscribers)
       {DynamicSupervisor, name: RTP_SSE.ReceiverWorkerDynamicSupervisor, strategy: :one_for_one},
-      # Tweets counter supervisor, required for autoscaling the workers
 
+      # Counter for pools' :autoscale
       {DynamicSupervisor, name: RTP_SSE.TweetsCounterDynamicSupervisor, strategy: :one_for_one},
+
+      # Hashtag && Statistics
       {DynamicSupervisor, name: RTP_SSE.StatisticWorkerDynamicSupervisor, strategy: :one_for_one},
       {RTP_SSE.HashtagsWorker, name: RTP_SSE.HashtagsWorker},
+
+      # MongoDB Service
       {TweetProcessor.DBService, name: TweetProcessor.DBService},
 
-      # Aggregator Supervisor & Engagement workers Supervisor & Sentiments worker Supervisor
-      {DynamicSupervisor, name: TweetProcessor.EngagementWorkerSupervisor, strategy: :one_for_one},
-      {DynamicSupervisor, name: TweetProcessor.SentimentWorkerSupervisor, strategy: :one_for_one},
+      # Aggregator && Batcher
       {DynamicSupervisor, name: TweetProcessor.AggregatorDynamicSupervisor, strategy: :one_for_one},
+      {DynamicSupervisor, name: TweetProcessor.BatcherDynamicSupervisor, strategy: :one_for_one},
+
+      # Engagement
+      {DynamicSupervisor, name: TweetProcessor.EngagementWorkerDynamicSupervisor, strategy: :one_for_one},
+      {DynamicSupervisor, name: TweetProcessor.EngagementRouterDynamicSupervisor, strategy: :one_for_one},
+
+      # Sentiments
+      {DynamicSupervisor, name: TweetProcessor.SentimentsWorkerDynamicSupervisor, strategy: :one_for_one},
+      {DynamicSupervisor, name: TweetProcessor.SentimentsRouterDynamicSupervisor, strategy: :one_for_one},
+
       # Server
       {Task.Supervisor, name: RTP_SSE.Server.TaskSupervisor},
       Supervisor.child_spec({Task, fn -> RTP_SSE.Server.accept(8080) end}, restart: :permanent)

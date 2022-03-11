@@ -21,7 +21,19 @@ defmodule RTP_SSE.LoggerRouter do
         RTP_SSE.StatisticWorker
       )
 
-    state = d(%{socket, statisticWorkerPID, index: 0, workers: [], refs: %{}, aggregatorPID: nil})
+    state = d(
+      %{
+        socket,
+        statisticWorkerPID,
+        index: 0,
+        workers: [],
+        refs: %{},
+        aggregatorPID: nil,
+        sentimentsRouterPID: nil,
+        engagementRouterPID: nil,
+        batcherPID: nil
+      }
+    )
     GenServer.start_link(__MODULE__, state, opts)
   end
 
@@ -30,15 +42,19 @@ defmodule RTP_SSE.LoggerRouter do
   @impl true
   def init(state) do
     # initial start of 5 workers per router process
-    Process.send_after(self(), {:add_aggregator}, 50)
-    Process.send_after(self(), {:add_logger_workers, 5}, 100)
+    Process.send_after(self(), {:start_aggregator_and_batcher}, 50)
+    # sentiments and engagement router needs the aggregator to be up and running
+    Process.send_after(self(), {:add_sentiments_router}, 100)
+    Process.send_after(self(), {:add_engagement_router}, 100)
+    # start the logger workers the last ones
+    Process.send_after(self(), {:add_logger_workers, 5}, 200)
     {:ok, state}
   end
 
   @doc """
   Asynchronously receives a tweet from the Receiver and it sends it to the next worker
   using the Round Robin load balancing technique
-  
+
   request 1 -> worker 1
   request 2 -> worker 2
   request 3 -> worker 1
@@ -67,7 +83,17 @@ defmodule RTP_SSE.LoggerRouter do
   @impl true
   def handle_call({:terminate_logger_worker}, fromWorker, state) do
     {workerPID, _ref} = fromWorker
-    d(%{socket, refs, workers, statisticWorkerPID, aggregatorPID}) = state
+    d(
+      %{
+        socket,
+        refs,
+        workers,
+        statisticWorkerPID,
+        aggregatorPID,
+        sentimentsRouterPID,
+        engagementRouterPID
+      }
+    ) = state
 
     # actually terminate child worker process only after 3 sec, so it would process all messages
     Process.send_after(self(), {:kill_child_worker, workerPID}, 4000)
@@ -78,7 +104,18 @@ defmodule RTP_SSE.LoggerRouter do
     {:ok, newWorkerPID} =
       DynamicSupervisor.start_child(
         RTP_SSE.LoggerWorkerDynamicSupervisor,
-        {RTP_SSE.LoggerWorker, d(%{socket, statisticWorkerPID, aggregatorPID, routerPID: self()})}
+        {
+          RTP_SSE.LoggerWorker,
+          d(
+            %{
+              socket,
+              statisticWorkerPID,
+              sentimentsRouterPID,
+              engagementRouterPID,
+              routerPID: self()
+            }
+          )
+        }
       )
 
     ref = Process.monitor(newWorkerPID)
@@ -132,7 +169,13 @@ defmodule RTP_SSE.LoggerRouter do
   """
   @impl true
   def handle_cast({:autoscale, cnt}, state) do
+    d(%{sentimentsRouterPID, engagementRouterPID}) = state
     if(cnt > 0) do
+
+      # autoscale as well the Sentiments / Engagement worker pools
+      GenServer.cast(sentimentsRouterPID, {:autoscale, cnt})
+      GenServer.cast(engagementRouterPID, {:autoscale, cnt})
+
       expect_workers_no = div(cnt, 5) + 1
       current_workers_no = length(state.workers)
       diff = expect_workers_no - current_workers_no
@@ -159,7 +202,16 @@ defmodule RTP_SSE.LoggerRouter do
   """
   @impl true
   def handle_info({:add_logger_workers, nr}, state) do
-    d(%{socket, statisticWorkerPID, refs, workers, aggregatorPID}) = state
+    d(
+      %{
+        socket,
+        statisticWorkerPID,
+        refs,
+        workers,
+        sentimentsRouterPID,
+        engagementRouterPID
+      }
+    ) = state
 
     logger_workers =
       Enum.map(
@@ -170,7 +222,15 @@ defmodule RTP_SSE.LoggerRouter do
               RTP_SSE.LoggerWorkerDynamicSupervisor,
               {
                 RTP_SSE.LoggerWorker,
-                d(%{socket, statisticWorkerPID, aggregatorPID, routerPID: self()})
+                d(
+                  %{
+                    socket,
+                    statisticWorkerPID,
+                    sentimentsRouterPID,
+                    engagementRouterPID,
+                    routerPID: self()
+                  }
+                )
               }
             )
 
@@ -198,16 +258,54 @@ defmodule RTP_SSE.LoggerRouter do
   end
 
   @doc """
-  Add a new Aggregator process for this Router
+  Add a new Aggregator and Batcher for this specific Router (Stream)
   """
   @impl true
-  def handle_info({:add_aggregator}, state) do
+  def handle_info({:start_aggregator_and_batcher}, state) do
     d(%{socket, statisticWorkerPID, refs, workers}) = state
+    {:ok, batcherPID} = DynamicSupervisor.start_child(
+      TweetProcessor.BatcherDynamicSupervisor,
+      TweetProcessor.Batcher
+    )
     {:ok, aggregatorPID} = DynamicSupervisor.start_child(
       TweetProcessor.AggregatorDynamicSupervisor,
-      TweetProcessor.Aggregator
+      {TweetProcessor.Aggregator, d(%{batcherPID})}
     )
-    {:noreply, %{state | aggregatorPID: aggregatorPID}}
+    {:noreply, %{state | aggregatorPID: aggregatorPID, batcherPID: batcherPID}}
+  end
+
+  @doc """
+  Create a new `SentimentsRouter` - a pool of `SentimentsWorker` workers
+  """
+  @impl true
+  def handle_info({:add_sentiments_router}, state) do
+    d(%{aggregatorPID}) = state
+    {:ok, sentimentsRouterPID} =
+      DynamicSupervisor.start_child(
+        TweetProcessor.SentimentsRouterDynamicSupervisor,
+        {
+          TweetProcessor.SentimentsRouter,
+          d(%{aggregatorPID})
+        }
+      )
+    {:noreply, %{state | sentimentsRouterPID: sentimentsRouterPID}}
+  end
+
+  @doc """
+  Create a new `EngagementRouter` - a pool of `EngagementWorker` workers
+  """
+  @impl true
+  def handle_info({:add_engagement_router}, state) do
+    d(%{aggregatorPID}) = state
+    {:ok, engagementRouterPID} =
+      DynamicSupervisor.start_child(
+        TweetProcessor.EngagementRouterDynamicSupervisor,
+        {
+          TweetProcessor.EngagementRouter,
+          d(%{aggregatorPID})
+        }
+      )
+    {:noreply, %{state | engagementRouterPID: engagementRouterPID}}
   end
 
   @doc """

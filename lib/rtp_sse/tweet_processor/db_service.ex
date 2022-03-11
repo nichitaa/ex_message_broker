@@ -1,11 +1,8 @@
 defmodule TweetProcessor.DBService do
 
   @moduledoc """
-  TweetProcessor.DBService.insert(%{data: "test"})
-
-  mongo filters:
-  {"original.message.tweet.retweeted_status": {$ne: null}}
-  {"original.message.tweet.id": 721951842456829952}
+  MongoDB Service, used by the `Batcher` to perform a bulk
+  insert of `tweets` and `users` into corresponding collections
   """
 
   import Destructure
@@ -14,7 +11,7 @@ defmodule TweetProcessor.DBService do
 
   @tweets_collection "tweets" # collection name
   @users_collection "users"
-  @max_bulk_size 500   # Mongo max bulk size for 1000 documents bulk upload
+  @max_bulk_size 50   # Mongo max bulk size for 200 documents bulk upload
 
   def start_link(opts \\ []) do
     {:ok, connectionPID} = Mongo.start_link(url: "mongodb://localhost:27017/rtp_sse_db")
@@ -23,9 +20,6 @@ defmodule TweetProcessor.DBService do
 
   ## Client API
 
-  @doc """
-    Saves the passed `data` into MongoDB `tweets` or `users` collection
-  """
   def bulk_insert_tweets(data) do
     GenServer.cast(TweetProcessor.DBService, {:bulk_insert_tweets, data})
   end

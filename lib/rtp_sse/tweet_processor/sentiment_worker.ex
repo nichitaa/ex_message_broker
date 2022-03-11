@@ -4,8 +4,8 @@ defmodule TweetProcessor.SentimentWorker do
   use GenServer
   require Logger
 
-  def start_link(_args, opts \\ []) do
-    GenServer.start_link(__MODULE__, %{}, opts)
+  def start_link(args, opts \\ []) do
+    GenServer.start_link(__MODULE__, args, opts)
   end
 
   ## Callbacks
@@ -15,8 +15,13 @@ defmodule TweetProcessor.SentimentWorker do
     {:ok, state}
   end
 
+  @doc """
+  1. Calculate the sentiments score for given tweet and save the used variables as result
+  2. Send the result to the linked `Aggregator`
+  """
   @impl true
-  def handle_call({:sentiments, tweet_data}, _from, state) do
+  def handle_cast({:sentiments, tweet_data}, state) do
+    d(%{aggregatorPID}) = state
 
     punctuation = [".", ",", "?", "/", ":", ";", "!", "|"]
 
@@ -36,9 +41,16 @@ defmodule TweetProcessor.SentimentWorker do
 
     score = Statistics.mean(words_emotion_values)
 
-    result = d(%{tweet_text, tweet_words, words_emotion_values, score})
+    result = d(
+      %{
+        score_data: d(%{tweet_text, tweet_words, words_emotion_values, score}),
+        original_tweet: tweet_data
+      }
+    )
 
-    {:reply, result, state}
+    TweetProcessor.Aggregator.process_tweet_sentiments_score(aggregatorPID, result)
+
+    {:noreply, state}
   end
 
 end

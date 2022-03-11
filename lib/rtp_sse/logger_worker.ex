@@ -39,7 +39,7 @@ defmodule RTP_SSE.LoggerWorker do
   """
   @impl true
   def handle_cast({:log_tweet, tweet_data}, state) do
-    d(%{socket, routerPID, statisticWorkerPID, aggregatorPID}) = state
+    d(%{socket, routerPID, statisticWorkerPID, sentimentsRouterPID, engagementRouterPID}) = state
 
     start_time = :os.system_time(:milli_seconds)
 
@@ -48,7 +48,9 @@ defmodule RTP_SSE.LoggerWorker do
         GenServer.call(routerPID, {:terminate_logger_worker})
       {:ok, parsed, message} ->
         :gen_tcp.send(socket, message)
-        TweetProcessor.Aggregator.process_tweet(aggregatorPID, parsed)
+        # send the tweet the Sentiments & Engagement Routers (2 independent pools of workers)
+        TweetProcessor.SentimentsRouter.route(sentimentsRouterPID, parsed)
+        TweetProcessor.EngagementRouter.route(engagementRouterPID, parsed)
         RTP_SSE.HashtagsWorker.process_hashtags(tweet_data)
         Process.sleep(Enum.random(50..500))
         end_time = :os.system_time(:milli_seconds)
