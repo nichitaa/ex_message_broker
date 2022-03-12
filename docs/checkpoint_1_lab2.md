@@ -2,7 +2,7 @@
 
 > Pasecinic Nichita
 >
-> Checkpoint 1 - 07.08.2022
+> Checkpoint 1 - 12.03.2022
 >
 > Real-Time Programming in `Elixir`
 
@@ -12,13 +12,16 @@
 
 
 
-Following the logic from [first part](./checkpoint_1.md), was added some additional functionalizes and responsibilities on the core `RTP_SSE.LoggerRouter`. Now, besides basing handling of the `LoggerWorker` it starts as well a few more `TweetProcessor` actors.
+Following the logic from [first part](./checkpoint_1.md), was added some additional functionalities and responsibilities on the core `RTP_SSE.LoggerRouter`. Now, besides basing handling of the `LoggerWorker` workers, it starts as well a few more `TweetProcessor` actors.
 
 1.  Starts the `Batcher` and `Aggregator` (passing the batcher `PID` to the `Aggregator`)
 2. Start 2 more worker pools: `EngagementRouter` & `SentimentsRouter` and saves their `PID`s in the internal state as the `LoggerWorker`s should communicate with both of the newly added worker pools
 
 
+
+
 -------
+
 
 
 ### **`TweetProcessor` Actors**
@@ -26,7 +29,7 @@ Following the logic from [first part](./checkpoint_1.md), was added some additio
 
 ### `SentimentsRouter`
 
-Pool of `SentimentWorker` workers - started under `SentimentsRouterDynamicSupervisor` supervisor. It autoscores the child workers and as well it passes the received tweet to a worker in a round robin fashion. It keeps in its' internal state the `Aggregator` `PID` that workers are using to send the calculated tweet score to it.
+Pool of `SentimentWorker` workers - started under `SentimentsRouterDynamicSupervisor` supervisor. It autoscores the child workers, it **safely** terminates the worker process, so no data is being lost and as well it passes the received `tweet_data` to a worker in a round robin fashion. It keeps in its internal state the `Aggregator` `PID` that workers are using to send the calculated tweet score to it.
 
 
 ### `EngagementRouter`
@@ -36,12 +39,12 @@ Pool of `EngagementWorker` workers - started under `EngagementRouterDynamicSuper
 
 ### `SentimentWorker`
 
-`SentimentsRouter` worker that computes the sentiments score based on tweet text. We have [this huge](./../lib/rtp_sse/tweet_processor/emotion_values.ex) map of word-score values that we look in for each word from a tweet, `score` is equal with the mean of those values.
+`SentimentsRouter` worker that asynchronously computes the sentiments score based on tweet text. We have [this huge](./../lib/rtp_sse/tweet_processor/emotion_values.ex) map of word-score values that we look in for each word from a tweet, `score` is equal with the mean of those values.
 
 
 ### `EngagementWorker`
 
-`EngagementRouter` worker that calculates the engagement score of a tweet based on the following formula `score = (favorites + retweets) / followers`. Sends to the `Aggregator` the score together with all formula arguments.
+`EngagementRouter` worker that asynchronously calculates the engagement score of a tweet based on the following formula `score = (favorites + retweets) / followers`. Sends to the `Aggregator` the score together with all formula arguments.
 
 
 ### `Aggregator`
@@ -73,6 +76,8 @@ Accumulates the tweets with their scores from the `Aggregator` into batcher of a
 `MongoDB` was selected to be the application database because of [the greatest elixir driver for mongodb](https://github.com/zookzook/elixir-mongodb-driver) that supports bulk writes. It is an actor (used by `Batcher`) that has some utility methods for inserting multiple documents to `tweets` and `users` collections. It does an extremely fast `Mongo.UnorderedBulk.write` with a limit of `@max_bulk_size 50` (so max of 4 bulk writes / requests to Mongo for our 200 `Batcher` `max_batch_size` limit), as well it was used `Stream` API to optimize and reduce the memory usage even more.
 
 
+
+
 -----
 
 
@@ -102,14 +107,17 @@ twitter
 ------
 
 
+
 ### **Supervisor diagram** `v3`
 
 ![supervisor](./../assets/supervisor_diagram_v3.png)
 
 ### **Extended with**
 
-To be added
+![supervisor_extended](./../assets/supevisor_diagramv4.png)
 
 ### **Message exchange** (only for extended supervisor diagram)
 
-To be added
+**Note:** The bellow diagram is for a **single** `LoggerRouter` that is a worker pool of `LoggerWorkers` that is used to delegate the tweets for a single `SSE` Stream. In our case there are 2 streams (for `/tweets/1` and `/tweets/2`), so we will have 2 `LoggerRouter`s so the diagram will multiply with exactly the same data flow for the second `LoggerRouter`. As well in our system can be as many client connections as we want, so for each client connection that will process `twitter` command there will be created a exactly the same structure of actors from top to bottom. The communication between the each pool of workers and actual workers and other actors is asynchronously.
+
+![supervisor_extended](./../assets/msg_exchange_v4.png)
