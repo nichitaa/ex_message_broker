@@ -16,7 +16,25 @@ defmodule TweetProcessor.EngagementRouter do
     GenServer.cast(pid, {:route, tweet_data})
   end
 
+  ## Privates
+
+  defp check_retweet(tweet) do
+    # treating retweeted_status as separate tweet
+    retweeted_tweet = tweet["message"]["tweet"]["retweeted_status"]
+    if retweeted_tweet != nil do
+      # make the retweet object have the original tweet properties
+      retweeted_tweet = %{
+        "is_retweet" => true,
+        "message" => %{
+          "tweet" => retweeted_tweet
+        }
+      }
+      GenServer.cast(self(), {:route, retweeted_tweet})
+    end
+  end
+
   ## Callbacks
+
   def init(state) do
     # initial start with 5 workers (per SSE stream or Router)
     Process.send_after(self(), {:add_workers, 5}, 50)
@@ -32,6 +50,9 @@ defmodule TweetProcessor.EngagementRouter do
   @impl true
   def handle_cast({:route, tweet_data}, state) do
     d(%{workers, index}) = state
+
+    check_retweet(tweet_data)
+
     if length(workers) > 0 do
       Enum.at(workers, rem(index, length(workers)))
       |> GenServer.cast({:engagement, tweet_data})
