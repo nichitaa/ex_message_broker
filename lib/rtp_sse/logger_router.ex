@@ -265,7 +265,7 @@ defmodule RTP_SSE.LoggerRouter do
     d(%{socket, statisticWorkerPID, refs, workers}) = state
     {:ok, batcherPID} = DynamicSupervisor.start_child(
       TweetProcessor.BatcherDynamicSupervisor,
-      TweetProcessor.Batcher
+      {TweetProcessor.Batcher, d(%{statisticWorkerPID})}
     )
     {:ok, aggregatorPID} = DynamicSupervisor.start_child(
       TweetProcessor.AggregatorDynamicSupervisor,

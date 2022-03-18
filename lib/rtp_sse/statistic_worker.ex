@@ -4,7 +4,14 @@ defmodule RTP_SSE.StatisticWorker do
   require Logger
 
   def start_link(_args, opts \\ []) do
-    state = %{execution_times: [], crashes_nr: 0}
+    state = %{
+      execution_times: [],
+      bulk_tweets_time: [],
+      bulk_users_time: [],
+      ingested_tweets: 0,
+      ingested_users: 0,
+      crashes_nr: 0
+    }
     GenServer.start_link(__MODULE__, state, opts)
   end
 
@@ -18,7 +25,16 @@ defmodule RTP_SSE.StatisticWorker do
 
   @impl true
   def handle_cast({:reset_stats_loop}, state) do
-    d(%{execution_times, crashes_nr}) = state
+    d(
+      %{
+        execution_times,
+        bulk_users_time,
+        bulk_tweets_time,
+        crashes_nr,
+        ingested_users,
+        ingested_tweets
+      }
+    ) = state
 
     if length(execution_times) > 0 do
       first = percentile(execution_times, 75)
@@ -26,13 +42,59 @@ defmodule RTP_SSE.StatisticWorker do
       third = percentile(execution_times, 95)
 
       Logger.info(
-        "[StatisticWorker #{inspect(self())}] Percentile stats 75%=#{first} | 85%=#{second} | 95%=#{third} [#{crashes_nr} CRASHES/5sec]"
+        "[StatisticWorker #{inspect(self())} - LoggerWorker execution time] Percentile stats 75%=#{first} | 85%=#{
+          second
+        } | 95%=#{third} [#{
+          crashes_nr
+        } CRASHES/5sec]"
+      )
+    end
+
+    if length(bulk_users_time) > 0 do
+      first = percentile(bulk_users_time, 75)
+      second = percentile(bulk_users_time, 85)
+      third = percentile(bulk_users_time, 95)
+
+      Logger.info(
+        "[StatisticWorker #{inspect(self())} - Bulk `users` insert stats] Execution time percentile 75%=#{
+          first
+        } | 85%=#{
+          second
+        } | 95%=#{third} [processed=#{inspect(ingested_users)}]"
+      )
+    end
+
+    if length(bulk_tweets_time) > 0 do
+      first = percentile(bulk_tweets_time, 75)
+      second = percentile(bulk_tweets_time, 85)
+      third = percentile(bulk_tweets_time, 95)
+
+      Logger.info(
+        "[StatisticWorker #{inspect(self())} - Bulk `tweets` insert stats] Execution time percentile 75%=#{
+          first
+        } | 85%=#{
+          second
+        } | 95%=#{third} [processed=#{inspect(ingested_tweets)}]"
       )
     end
 
     reset_stats_loop()
-    {:noreply, %{execution_times: [], crashes_nr: 0}}
+    {
+      :noreply,
+      d(
+        %{
+          execution_times: [],
+          bulk_tweets_time: [],
+          bulk_users_time: [],
+          ingested_tweets: 0,
+          ingested_users: 0,
+          crashes_nr: 0
+        }
+      )
+    }
   end
+
+  # For LoggerWorker stats
 
   @impl true
   def handle_cast({:add_execution_time, time}, state) do
@@ -44,15 +106,43 @@ defmodule RTP_SSE.StatisticWorker do
     {:reply, nil, %{state | crashes_nr: state.crashes_nr + 1}}
   end
 
+  # For DBService stats
+
+  @impl true
+  def handle_cast({:add_bulk_tweets_stats, time, amount}, state) do
+    {
+      :noreply,
+      %{
+        state |
+        ingested_tweets: state.ingested_tweets + amount,
+        bulk_tweets_time: Enum.concat(state.bulk_tweets_time, [time])
+      }
+    }
+  end
+
+  @impl true
+  def handle_cast({:add_bulk_users_stats, time, amount}, state) do
+    {
+      :noreply,
+      %{
+        state |
+        ingested_users: state.ingested_users + amount,
+        bulk_users_time: Enum.concat(state.bulk_users_time, [time])
+      }
+    }
+  end
+
   ## Privates
 
   defp reset_stats_loop() do
     pid = self()
 
-    spawn(fn ->
-      Process.sleep(5000)
-      GenServer.cast(pid, {:reset_stats_loop})
-    end)
+    spawn(
+      fn ->
+        Process.sleep(5000)
+        GenServer.cast(pid, {:reset_stats_loop})
+      end
+    )
   end
 
   @doc """

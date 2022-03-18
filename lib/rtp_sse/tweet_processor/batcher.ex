@@ -7,8 +7,16 @@ defmodule TweetProcessor.Batcher do
   @max_batch_size 200 # limit for batch size (tweets[] and users[])
   @flush_time 3000 # flush / save data every 3 sec
 
-  def start_link(opts \\ []) do
-    state = %{tweets: [], users: [], count: 0}
+  def start_link(args, opts \\ []) do
+    d(%{statisticWorkerPID}) = args
+    state = d(
+      %{
+        statisticWorkerPID,
+        tweets: [],
+        users: [],
+        count: 0
+      }
+    )
     GenServer.start_link(__MODULE__, state, opts)
   end
 
@@ -33,12 +41,12 @@ defmodule TweetProcessor.Batcher do
     )
   end
 
-  defp save_tweets(data) do
-    TweetProcessor.DBService.bulk_insert_tweets(data)
+  defp save_tweets(data, statisticWorkerPID) do
+    TweetProcessor.DBService.bulk_insert_tweets(data, statisticWorkerPID)
   end
 
-  defp save_users(data) do
-    TweetProcessor.DBService.bulk_insert_users(data)
+  defp save_users(data, statisticWorkerPID) do
+    TweetProcessor.DBService.bulk_insert_users(data, statisticWorkerPID)
   end
 
   ## Callbacks
@@ -55,15 +63,15 @@ defmodule TweetProcessor.Batcher do
   """
   @impl true
   def handle_cast({:add_tweet, tweet_data}, state) do
-    d(%{tweets, users, count}) = state
+    d(%{tweets, users, count, statisticWorkerPID}) = state
 
     count = count + 1
     tweets = [tweet_data[:tweet] | tweets]
     users = [tweet_data[:user] | users]
 
     if count >= @max_batch_size do
-      save_tweets(tweets)
-      save_users(users)
+      save_tweets(tweets, statisticWorkerPID)
+      save_users(users, statisticWorkerPID)
       {:noreply, %{state | tweets: [], users: [], count: 0}}
     else
       {:noreply, %{state | tweets: tweets, users: users, count: count}}
@@ -73,11 +81,11 @@ defmodule TweetProcessor.Batcher do
 
   @impl true
   def handle_cast({:flush_state}, state) do
-    d(%{tweets, users, count}) = state
+    d(%{tweets, users, count, statisticWorkerPID}) = state
 
     if count > 0 do
-      save_tweets(tweets)
-      save_users(users)
+      save_tweets(tweets, statisticWorkerPID)
+      save_users(users, statisticWorkerPID)
     end
 
     flush_state_loop()
