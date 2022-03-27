@@ -29,3 +29,4 @@ rtp_sse-*.tar
 /.elixir_ls/
 
 /.idea/
+/hashtag_stats.json/
