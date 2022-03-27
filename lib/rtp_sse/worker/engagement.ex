@@ -1,4 +1,4 @@
-defmodule TweetProcessor.EngagementWorker do
+defmodule Worker.Engagement do
 
   import Destructure
   use GenServer
@@ -30,8 +30,16 @@ defmodule TweetProcessor.EngagementWorker do
   2. Send the result to the linked `Aggregator`
   """
   @impl true
-  def handle_cast({:engagement, tweet_data}, state) do
+  def handle_cast({:work, tweet_data, poolPID}, state) do
     d(%{aggregatorPID}) = state
+
+    # check for retweet
+    case Utils.is_retweet(tweet_data) do
+      {true, retweet} ->
+        WorkerPool.route(poolPID, retweet)
+      {false, nil} -> nil
+      _ -> nil
+    end
 
     favorite_count = tweet_data["message"]["tweet"]["favorite_count"]
     retweet_count = tweet_data["message"]["tweet"]["retweet_count"]
@@ -46,7 +54,7 @@ defmodule TweetProcessor.EngagementWorker do
       }
     )
 
-    TweetProcessor.Aggregator.process_tweet_engagement_score(aggregatorPID, result)
+    App.Aggregator.process_tweet_engagement_score(aggregatorPID, result)
     {:noreply, state}
   end
 

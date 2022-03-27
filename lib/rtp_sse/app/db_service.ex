@@ -1,4 +1,4 @@
-defmodule TweetProcessor.DBService do
+defmodule App.DBService do
 
   @moduledoc """
   MongoDB Service, used by the `Batcher` to perform a bulk
@@ -13,19 +13,20 @@ defmodule TweetProcessor.DBService do
   @users_collection "users"
   @max_bulk_size 50   # Mongo max bulk size for 200 documents bulk upload
 
-  def start_link(opts \\ []) do
+  def start_link(args, opts \\ []) do
+    d(%{statisticWorkerPID}) = args
     {:ok, connectionPID} = Mongo.start_link(url: "mongodb://localhost:27017/rtp_sse_db")
-    GenServer.start_link(__MODULE__, d(%{connectionPID}), opts)
+    GenServer.start_link(__MODULE__, d(%{connectionPID, statisticWorkerPID}), opts)
   end
 
   ## Client API
 
-  def bulk_insert_tweets(data, statisticWorkerPID) do
-    GenServer.cast(TweetProcessor.DBService, {:bulk_insert_tweets, data, statisticWorkerPID})
+  def bulk_insert_tweets(pid, data) do
+    GenServer.cast(pid, {:bulk_insert_tweets, data})
   end
 
-  def bulk_insert_users(data, statisticWorkerPID) do
-    GenServer.cast(TweetProcessor.DBService, {:bulk_insert_users, data, statisticWorkerPID})
+  def bulk_insert_users(pid, data) do
+    GenServer.cast(pid, {:bulk_insert_users, data})
   end
 
   ## Privates
@@ -51,26 +52,24 @@ defmodule TweetProcessor.DBService do
   end
 
   @impl true
-  def handle_cast({:bulk_insert_tweets, data, statisticWorkerPID}, state) do
-    d(%{connectionPID}) = state
+  def handle_cast({:bulk_insert_tweets, data}, state) do
+    d(%{connectionPID, statisticWorkerPID}) = state
     start_time = :os.system_time(:milli_seconds)
     bulk_insert(connectionPID, @tweets_collection, data)
     end_time = :os.system_time(:milli_seconds)
     time_diff = end_time - start_time
-    Logger.info("[DBService #{inspect(self())}] time_tweet=#{inspect(time_diff)}}")
     GenServer.cast(statisticWorkerPID, {:add_bulk_tweets_stats, time_diff, length(data)})
     {:noreply, state}
   end
 
   @impl true
-  def handle_cast({:bulk_insert_users, data, statisticWorkerPID}, state) do
-    d(%{connectionPID}) = state
+  def handle_cast({:bulk_insert_users, data}, state) do
+    d(%{connectionPID, statisticWorkerPID}) = state
     start_time = :os.system_time(:milli_seconds)
     bulk_insert(connectionPID, @users_collection, data)
 
     end_time = :os.system_time(:milli_seconds)
     time_diff = end_time - start_time
-    Logger.info("[DBService #{inspect(self())}] time_users=#{inspect(time_diff)}}")
     GenServer.cast(statisticWorkerPID, {:add_bulk_users_stats, time_diff, length(data)})
     {:noreply, state}
   end

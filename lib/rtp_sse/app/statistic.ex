@@ -1,9 +1,9 @@
-defmodule RTP_SSE.StatisticWorker do
+defmodule App.Statistic do
   import Destructure
   use GenServer
   require Logger
 
-  def start_link(_args, opts \\ []) do
+  def start_link(args, opts \\ []) do
     state = %{
       execution_times: [],
       bulk_tweets_time: [],
@@ -12,7 +12,14 @@ defmodule RTP_SSE.StatisticWorker do
       ingested_users: 0,
       crashes_nr: 0
     }
+    name = String.to_atom("Statistic_#{Kernel.inspect(args.socket)}")
     GenServer.start_link(__MODULE__, state, opts)
+  end
+
+  ## Client API
+
+  def add_execution_time(pid, time) do
+    GenServer.cast(pid, {:add_execution_time, time})
   end
 
   ## Callbacks

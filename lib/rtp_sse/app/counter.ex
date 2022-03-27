@@ -1,9 +1,10 @@
-defmodule RTP_SSE.TweetsCounter do
+defmodule App.Counter do
   import Destructure
   use GenServer
   require Logger
 
   def start_link(args, opts \\ []) do
+    Logger.info("Counter start_link: #{inspect(args)}")
     state = Map.put(args, :counter, 0)
     GenServer.start_link(__MODULE__, state, opts)
   end
@@ -26,14 +27,21 @@ defmodule RTP_SSE.TweetsCounter do
 
   @impl true
   def init(state) do
-    reset_counter_loop()
+     reset_counter_loop()
     {:ok, state}
   end
 
   @impl true
   def handle_cast({:reset_counter}, state) do
-    d(%{routerPID, counter}) = state
-    GenServer.cast(routerPID, {:autoscale, counter})
+    d(%{workerPoolPIDs, counter}) = state
+    # Iterate over worker pools and autoscale them
+    Enum.map(
+      workerPoolPIDs,
+      fn pid ->
+#        nil
+         GenServer.cast(pid, {:autoscale, counter})
+      end
+    )
     reset_counter_loop()
     {:noreply, %{state | counter: 0}}
   end

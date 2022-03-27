@@ -1,4 +1,4 @@
-defmodule TweetProcessor.SentimentWorker do
+defmodule Worker.Sentiment do
 
   import Destructure
   use GenServer
@@ -20,8 +20,16 @@ defmodule TweetProcessor.SentimentWorker do
   2. Send the result to the linked `Aggregator`
   """
   @impl true
-  def handle_cast({:sentiments, tweet_data}, state) do
+  def handle_cast({:work, tweet_data, poolPID}, state) do
     d(%{aggregatorPID}) = state
+
+    # check for retweet
+    case Utils.is_retweet(tweet_data) do
+      {true, retweet} ->
+        WorkerPool.route(poolPID, retweet)
+      {false, nil} -> nil
+      _ -> nil
+    end
 
     punctuation = [".", ",", "?", "/", ":", ";", "!", "|"]
 
@@ -34,7 +42,7 @@ defmodule TweetProcessor.SentimentWorker do
       Enum.map(
         tweet_words,
         fn w ->
-          score = TweetProcessor.EmotionValues.getWordEmotionalScore(w)
+          score = Utils.EmotionValues.getWordEmotionalScore(w)
           score
         end
       )
@@ -48,7 +56,7 @@ defmodule TweetProcessor.SentimentWorker do
       }
     )
 
-    TweetProcessor.Aggregator.process_tweet_sentiments_score(aggregatorPID, result)
+    App.Aggregator.process_tweet_sentiments_score(aggregatorPID, result)
 
     {:noreply, state}
   end

@@ -1,4 +1,4 @@
-defmodule TweetProcessor.Aggregator do
+defmodule App.Aggregator do
 
   @moduledoc """
   When receiving a score from SentimentWorker or EngagementWorker
@@ -37,7 +37,7 @@ defmodule TweetProcessor.Aggregator do
 
   ## Privates
   def send_tweet_to_batcher(batcherPID, tw_id, original_tweet, engagement, sentiments, user) do
-    TweetProcessor.Batcher.add_tweet(
+    App.Batcher.add_tweet(
       batcherPID,
       d(
         %{

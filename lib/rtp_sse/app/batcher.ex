@@ -1,4 +1,4 @@
-defmodule TweetProcessor.Batcher do
+defmodule App.Batcher do
 
   import Destructure
   use GenServer
@@ -8,10 +8,10 @@ defmodule TweetProcessor.Batcher do
   @flush_time 3000 # flush / save data every 3 sec
 
   def start_link(args, opts \\ []) do
-    d(%{statisticWorkerPID}) = args
+    d(%{dbServicePID}) = args
     state = d(
       %{
-        statisticWorkerPID,
+        dbServicePID,
         tweets: [],
         users: [],
         count: 0
@@ -41,19 +41,19 @@ defmodule TweetProcessor.Batcher do
     )
   end
 
-  defp save_tweets(data, statisticWorkerPID) do
-    TweetProcessor.DBService.bulk_insert_tweets(data, statisticWorkerPID)
+  defp save_tweets(dbServicePID, data) do
+    App.DBService.bulk_insert_tweets(dbServicePID, data)
   end
 
-  defp save_users(data, statisticWorkerPID) do
-    TweetProcessor.DBService.bulk_insert_users(data, statisticWorkerPID)
+  defp save_users(dbServicePID, data) do
+    App.DBService.bulk_insert_users(dbServicePID, data)
   end
 
   ## Callbacks
 
   @impl true
   def init(state) do
-    flush_state_loop()
+     flush_state_loop()
     {:ok, state}
   end
 
@@ -63,15 +63,15 @@ defmodule TweetProcessor.Batcher do
   """
   @impl true
   def handle_cast({:add_tweet, tweet_data}, state) do
-    d(%{tweets, users, count, statisticWorkerPID}) = state
+    d(%{tweets, users, count, dbServicePID}) = state
 
     count = count + 1
     tweets = [tweet_data[:tweet] | tweets]
     users = [tweet_data[:user] | users]
 
     if count >= @max_batch_size do
-      save_tweets(tweets, statisticWorkerPID)
-      save_users(users, statisticWorkerPID)
+      save_tweets(dbServicePID, tweets)
+      save_users(dbServicePID, users)
       {:noreply, %{state | tweets: [], users: [], count: 0}}
     else
       {:noreply, %{state | tweets: tweets, users: users, count: count}}
@@ -81,11 +81,11 @@ defmodule TweetProcessor.Batcher do
 
   @impl true
   def handle_cast({:flush_state}, state) do
-    d(%{tweets, users, count, statisticWorkerPID}) = state
+    d(%{tweets, users, count, dbServicePID}) = state
 
     if count > 0 do
-      save_tweets(tweets, statisticWorkerPID)
-      save_users(users, statisticWorkerPID)
+      save_tweets(dbServicePID, tweets)
+      save_users(dbServicePID, users)
     end
 
     flush_state_loop()

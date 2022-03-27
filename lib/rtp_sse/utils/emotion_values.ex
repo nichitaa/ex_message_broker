@@ -1,4 +1,4 @@
-defmodule TweetProcessor.EmotionValues do
+defmodule Utils.EmotionValues do
 
   def getWordEmotionalScore(word) do
     map = %{

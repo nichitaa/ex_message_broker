@@ -1,71 +1,70 @@
-defmodule TweetProcessor.SentimentsRouter do
+defmodule WorkerPool do
+  @moduledoc """
+  Generic implementation of a worker pool
+  Usage
+  {:ok, pid} = DynamicSupervisor.start_child(
+      YourWorkerPoolDynamicSupervisor,
+      {
+        WorkerPool,
+        d(
+          %{
+            pool_supervisor_name: YourWorkerPoolDynamicSupervisor,
+            worker: Worker.Sentiment, # worker type
+            workerArgs: %{:some: "initial args for your workers"},
+          }
+        )
+      }
+    )
+  """
 
   import Destructure
   use GenServer
   require Logger
 
   def start_link(args, opts \\ []) do
-    d(%{aggregatorPID}) = args
-    state = d(%{aggregatorPID, workers: [], refs: %{}, index: 0})
+    d(%{worker, workerArgs}) = args
+
+    state = d(
+      %{
+        worker, # worker type
+        pool_supervisor_name: args.pool_supervisor_name,
+        workers: [],
+        refs: %{},
+        index: 0,
+        workerArgs: workerArgs
+      }
+    )
     GenServer.start_link(__MODULE__, state, opts)
   end
 
   ## Client API
 
-  def route(pid, tweet_data) do
-    GenServer.cast(pid, {:route, tweet_data})
-  end
-
-  ## Privates
-
-  defp check_retweet(tweet) do
-    # treating retweeted_status as separate tweet
-    retweeted_tweet = tweet["message"]["tweet"]["retweeted_status"]
-    if retweeted_tweet != nil do
-      # make the retweet object have the original tweet properties
-      retweeted_tweet = %{
-        "is_retweet" => true,
-        "message" => %{
-          "tweet" => retweeted_tweet
-        }
-      }
-      GenServer.cast(self(), {:route, retweeted_tweet})
-    end
+  def route(pid, data) do
+    GenServer.cast(pid, {:route, data})
   end
 
   ## Callbacks
 
   def init(state) do
-    # initial start with 5 workers (per SSE stream or Router)
+    # initial start with 5 workers
     Process.send_after(self(), {:add_workers, 5}, 50)
     {:ok, state}
   end
 
-
-  ## Sentiments-Workers handling methods
-
-  @doc """
-  Round-Robin load balancer for `SentimentsWorkers` workers
-  """
   @impl true
-  def handle_cast({:route, tweet_data}, state) do
+  def handle_cast({:route, data}, state) do
     d(%{workers, index}) = state
-
-    check_retweet(tweet_data)
 
     if length(workers) > 0 do
       Enum.at(workers, rem(index, length(workers)))
-      |> GenServer.cast({:sentiments, tweet_data})
+      |> GenServer.cast({:work, data, self()})
     end
     {:noreply, %{state | index: index + 1}}
   end
 
-  @doc """
-  Add a new workers controlled by this parent process
-  """
   @impl true
   def handle_info({:add_workers, nr}, state) do
-    d(%{aggregatorPID, workers, refs}) = state
+    d(%{workers, refs, worker, workerArgs, pool_supervisor_name}) = state
 
     new_workers =
       Enum.map(
@@ -73,11 +72,8 @@ defmodule TweetProcessor.SentimentsRouter do
         fn x ->
           {:ok, workerPID} =
             DynamicSupervisor.start_child(
-              TweetProcessor.SentimentsWorkerDynamicSupervisor,
-              {
-                TweetProcessor.SentimentWorker,
-                d(%{aggregatorPID})
-              }
+              pool_supervisor_name,
+              {worker, workerArgs}
             )
           workerPID
         end
@@ -94,17 +90,14 @@ defmodule TweetProcessor.SentimentsRouter do
       )
 
     workers = Enum.concat(workers, new_workers)
-    Logger.info("[SentimentsRouter #{inspect(self())}] added #{nr} workers, current=#{length(workers)}")
+    Logger.info("[#{inspect(pool_supervisor_name)}] added #{nr} workers, current=#{length(workers)}")
 
     {:noreply, %{state | refs: refs, workers: workers}}
   end
 
-  @doc """
-  Remove x workers from state only
-  """
   @impl true
   def handle_info({:remove_workers, nr}, state) do
-    d(%{workers}) = state
+    d(%{workers, pool_supervisor_name}) = state
     workers_to_be_removed = Enum.take(workers, nr)
     # terminate safely each worker process
     Enum.each(
@@ -116,14 +109,11 @@ defmodule TweetProcessor.SentimentsRouter do
     # remove workers from the state, so they will not receive more messages to queue
     workers = Enum.reject(workers, fn x -> x in workers_to_be_removed end)
     Logger.info(
-      "[SentimentsRouter #{inspect(self())}] removed #{nr} workers, current=#{length(workers)}"
+      "[#{inspect(pool_supervisor_name)}] removed #{nr} workers, current=#{length(workers)}"
     )
     {:noreply, %{state | workers: workers}}
   end
 
-  @doc """
-  Autoscale the workers for this pool
-  """
   @impl true
   def handle_cast({:autoscale, cnt}, state) do
     if(cnt > 0) do
@@ -145,25 +135,42 @@ defmodule TweetProcessor.SentimentsRouter do
     {:noreply, state}
   end
 
-  @doc """
-  Safely terminate a worker process
-  """
+  @impl true
+  def handle_call({:kill_child_worker}, fromWorker, state) do
+    # handle receiving kill requests from workers itself (used by logger workers)
+    {workerPID, _ref} = fromWorker
+    d(
+      %{
+        workers,
+      }
+    ) = state
+
+    # actually terminate child worker process only after 3 sec, so it would process all messages
+    Process.send_after(self(), {:worker_terminate_safe, workerPID}, 4000)
+
+    # substitute the dead worker with a new one
+    Process.send_after(self(), {:add_workers, 1}, 50)
+
+    # remove worker from state so it will not receive more messages to its queue
+    workers = List.delete(workers, workerPID)
+
+    {:reply, nil, %{state | workers: workers}}
+  end
+
   @impl true
   def handle_info({:worker_terminate_safe, workerPID}, state) do
+    d(%{pool_supervisor_name}) = state
     case Process.info(workerPID, :message_queue_len) do
       {:message_queue_len, len} when len > 0 ->
         Process.send_after(self(), {:worker_terminate_safe, workerPID}, 4000)
       {:message_queue_len, len} when len == 0 ->
-        DynamicSupervisor.terminate_child(TweetProcessor.SentimentsWorkerDynamicSupervisor, workerPID)
+        DynamicSupervisor.terminate_child(pool_supervisor_name, workerPID)
       _ ->
         nil
     end
     {:noreply, state}
   end
 
-  @doc """
-  Clean up the `refs` state for the dead worker
-  """
   @impl true
   def handle_info({:DOWN, ref, :process, workerPID, _reason}, state) do
     {_prev, refs} = Map.pop(state.refs, ref)

@@ -1,9 +1,5 @@
-defmodule RTP_SSE.Server do
-  @moduledoc """
-  A simple `TCP` server [docs](https://elixir-lang.org/getting-started/mix-otp/task-and-gen-tcp.html).
-  It accepts connections on given port (8080 in my case) and spawns
-  other processes (under Task.Supervisor `RTP_SSE.Server.TaskSupervisor`) that servers the requests (`commands`)
-  """
+defmodule Server do
+
   require Logger
 
   ## Client API
@@ -27,7 +23,7 @@ defmodule RTP_SSE.Server do
     :gen_tcp.send(client, "Type `twitter` to start processing SSE (from Twitter API)\r\n")
 
     {:ok, pid} =
-      Task.Supervisor.start_child(RTP_SSE.Server.TaskSupervisor, fn -> serve(client) end)
+      Task.Supervisor.start_child(Server.TaskSupervisor, fn -> serve(client) end)
 
     :ok = :gen_tcp.controlling_process(client, pid)
     loop_acceptor(socket)
@@ -36,8 +32,8 @@ defmodule RTP_SSE.Server do
   defp serve(socket) do
     msg =
       with {:ok, data} <- read_line(socket),
-           {:ok, command} <- RTP_SSE.Command.parse(data),
-           do: RTP_SSE.Command.run(command, socket)
+           {:ok, command} <- Command.parse(data),
+           do: Command.run(command, socket)
 
     write_line(socket, msg)
     serve(socket)
