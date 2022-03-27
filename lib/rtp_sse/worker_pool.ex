@@ -21,6 +21,10 @@ defmodule WorkerPool do
   use GenServer
   require Logger
 
+  @wp_default_worker_no Application.fetch_env!(:rtp_sse, :wp_default_worker_no)
+  @wp_start_delay Application.fetch_env!(:rtp_sse, :wp_start_delay)
+  @wp_terminate_delay Application.fetch_env!(:rtp_sse, :wp_terminate_delay)
+
   def start_link(args, opts \\ []) do
     d(%{worker, workerArgs}) = args
 
@@ -47,7 +51,7 @@ defmodule WorkerPool do
 
   def init(state) do
     # initial start with 5 workers
-    Process.send_after(self(), {:add_workers, 5}, 50)
+    Process.send_after(self(), {:add_workers, @wp_default_worker_no}, @wp_start_delay)
     {:ok, state}
   end
 
@@ -146,10 +150,10 @@ defmodule WorkerPool do
     ) = state
 
     # actually terminate child worker process only after 3 sec, so it would process all messages
-    Process.send_after(self(), {:worker_terminate_safe, workerPID}, 4000)
+    Process.send_after(self(), {:worker_terminate_safe, workerPID}, @wp_terminate_delay)
 
     # substitute the dead worker with a new one
-    Process.send_after(self(), {:add_workers, 1}, 50)
+    Process.send_after(self(), {:add_workers, 1}, @wp_start_delay)
 
     # remove worker from state so it will not receive more messages to its queue
     workers = List.delete(workers, workerPID)
@@ -162,7 +166,7 @@ defmodule WorkerPool do
     d(%{pool_supervisor_name}) = state
     case Process.info(workerPID, :message_queue_len) do
       {:message_queue_len, len} when len > 0 ->
-        Process.send_after(self(), {:worker_terminate_safe, workerPID}, 4000)
+        Process.send_after(self(), {:worker_terminate_safe, workerPID}, @wp_terminate_delay)
       {:message_queue_len, len} when len == 0 ->
         DynamicSupervisor.terminate_child(pool_supervisor_name, workerPID)
       _ ->

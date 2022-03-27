@@ -4,8 +4,8 @@ defmodule App.Batcher do
   use GenServer
   require Logger
 
-  @max_batch_size 200 # limit for batch size (tweets[] and users[])
-  @flush_time 3000 # flush / save data every 3 sec
+  @max_batch_size Application.fetch_env!(:rtp_sse, :max_batch_size)
+  @batcher_flush_time Application.fetch_env!(:rtp_sse, :batcher_flush_time)
 
   def start_link(args, opts \\ []) do
     d(%{dbServicePID}) = args
@@ -35,7 +35,7 @@ defmodule App.Batcher do
     selfPID = self()
     spawn(
       fn ->
-        Process.sleep(@flush_time)
+        Process.sleep(@batcher_flush_time)
         GenServer.cast(selfPID, {:flush_state})
       end
     )

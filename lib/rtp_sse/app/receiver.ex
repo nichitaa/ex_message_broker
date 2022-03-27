@@ -1,5 +1,5 @@
 defmodule App.Receiver do
-  @sse_receive_delay 2000 # start receiving SSE after 2 sec
+  @sse_start_delay Application.fetch_env!(:rtp_sse, :sse_start_delay)
 
   import Destructure
   use GenServer
@@ -30,7 +30,7 @@ defmodule App.Receiver do
     # will invoke handle_info(:start_receiver_worker) after 1 sec
     # this delay is required because other actors (like: Router)
     # are starting child workers with some delay too
-    Process.send_after(self(), :start_receiver_worker, @sse_receive_delay)
+    Process.send_after(self(), :start_receiver_worker, @sse_start_delay)
     {:ok, state}
   end
 

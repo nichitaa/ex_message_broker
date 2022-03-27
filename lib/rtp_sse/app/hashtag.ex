@@ -7,7 +7,8 @@ defmodule App.Hashtag do
   save hashtags statistics as `JSON` (file `hashtag_stats.json`)
       iex> RTP_SSE.HashtagsWorker.download_stats
   """
-  @flush_time 3000 # save hashtags to JSON every 3 sec
+
+  @hashtags_flush_time Application.fetch_env!(:rtp_sse, :hashtags_flush_time)
 
   use GenServer
   require Logger
@@ -49,7 +50,7 @@ defmodule App.Hashtag do
     selfPID = self()
     spawn(
       fn ->
-        Process.sleep(@flush_time)
+        Process.sleep(@hashtags_flush_time)
         App.Hashtag.download_stats(selfPID)
       end
     )

@@ -3,8 +3,10 @@ defmodule App.Counter do
   use GenServer
   require Logger
 
+  @autoscaler_time_frame Application.fetch_env!(:rtp_sse, :autoscaler_time_frame)
+  @enable_autoscaler Application.fetch_env!(:rtp_sse, :enable_autoscaler)
+
   def start_link(args, opts \\ []) do
-    Logger.info("Counter start_link: #{inspect(args)}")
     state = Map.put(args, :counter, 0)
     GenServer.start_link(__MODULE__, state, opts)
   end
@@ -17,17 +19,19 @@ defmodule App.Counter do
 
     # Note! `self()` inside the spawn will be the inner process,
     # but we need the counter process
-    spawn(fn ->
-      Process.sleep(1000)
-      GenServer.cast(counterPID, {:reset_counter})
-    end)
+    spawn(
+      fn ->
+        Process.sleep(@autoscaler_time_frame)
+        GenServer.cast(counterPID, {:reset_counter})
+      end
+    )
   end
 
   ## Callbacks
 
   @impl true
   def init(state) do
-     reset_counter_loop()
+    reset_counter_loop()
     {:ok, state}
   end
 
@@ -38,8 +42,9 @@ defmodule App.Counter do
     Enum.map(
       workerPoolPIDs,
       fn pid ->
-#        nil
-         GenServer.cast(pid, {:autoscale, counter})
+        if (@enable_autoscaler == true) do
+          GenServer.cast(pid, {:autoscale, counter})
+        end
       end
     )
     reset_counter_loop()

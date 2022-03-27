@@ -9,13 +9,14 @@ defmodule App.DBService do
   use GenServer
   require Logger
 
-  @tweets_collection "tweets" # collection name
-  @users_collection "users"
-  @max_bulk_size 50   # Mongo max bulk size for 200 documents bulk upload
+  @mongo_srv Application.fetch_env!(:rtp_sse, :mongo_srv)
+  @db_bulk_size Application.fetch_env!(:rtp_sse, :db_bulk_size)
+  @db_tweets_collection Application.fetch_env!(:rtp_sse, :db_tweets_collection)
+  @db_users_collection Application.fetch_env!(:rtp_sse, :db_users_collection)
 
   def start_link(args, opts \\ []) do
     d(%{statisticWorkerPID}) = args
-    {:ok, connectionPID} = Mongo.start_link(url: "mongodb://localhost:27017/rtp_sse_db")
+    {:ok, connectionPID} = Mongo.start_link(url: @mongo_srv)
     GenServer.start_link(__MODULE__, d(%{connectionPID, statisticWorkerPID}), opts)
   end
 
@@ -40,7 +41,7 @@ defmodule App.DBService do
            Mongo.BulkOps.get_insert_one(item)
          end
        )
-    |> Mongo.UnorderedBulk.write(connection, collection_name, @max_bulk_size)
+    |> Mongo.UnorderedBulk.write(connection, collection_name, @db_bulk_size)
     |> Stream.run()
   end
 
@@ -55,7 +56,7 @@ defmodule App.DBService do
   def handle_cast({:bulk_insert_tweets, data}, state) do
     d(%{connectionPID, statisticWorkerPID}) = state
     start_time = :os.system_time(:milli_seconds)
-    bulk_insert(connectionPID, @tweets_collection, data)
+    bulk_insert(connectionPID, @db_tweets_collection, data)
     end_time = :os.system_time(:milli_seconds)
     time_diff = end_time - start_time
     GenServer.cast(statisticWorkerPID, {:add_bulk_tweets_stats, time_diff, length(data)})
@@ -66,7 +67,7 @@ defmodule App.DBService do
   def handle_cast({:bulk_insert_users, data}, state) do
     d(%{connectionPID, statisticWorkerPID}) = state
     start_time = :os.system_time(:milli_seconds)
-    bulk_insert(connectionPID, @users_collection, data)
+    bulk_insert(connectionPID, @db_users_collection, data)
 
     end_time = :os.system_time(:milli_seconds)
     time_diff = end_time - start_time
