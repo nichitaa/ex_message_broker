@@ -3,7 +3,7 @@ defmodule App.Statistic do
   use GenServer
   require Logger
 
-  def start_link(args, opts \\ []) do
+  def start_link(_args, opts \\ []) do
     state = %{
       execution_times: [],
       bulk_tweets_time: [],
@@ -12,7 +12,6 @@ defmodule App.Statistic do
       ingested_users: 0,
       crashes_nr: 0
     }
-    name = String.to_atom("Statistic_#{Kernel.inspect(args.socket)}")
     GenServer.start_link(__MODULE__, state, opts)
   end
 

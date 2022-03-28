@@ -6,7 +6,7 @@ config :rtp_sse,
        wp_start_delay: 100, # start workers after 100 ms
        wp_terminate_delay: 4000, # for safe worker termination (each 4 seconds check for empty worker message queue then terminate it)
 
-       ms_delay: 100, # main supervisor delay (start all tree structure after 200ms)
+       ss_delay: 100, # stream supervisor delay (start all tree structure after 200ms)
        sse_base_url: "http://localhost:4000/tweets",
 
        sse_start_delay: 2000, # start receiving SSEs after 2 sec
