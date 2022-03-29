@@ -4,6 +4,8 @@ defmodule MainSupervisor do
   import Destructure
   require Logger
 
+  @streams_no Application.fetch_env!(:rtp_sse, :streams_no)
+
   def start_link(init_arg) do
     name = String.to_atom("MainSupervisor_#{Kernel.inspect(init_arg.socket)}")
     Supervisor.start_link(__MODULE__, init_arg, name: name)
@@ -15,7 +17,7 @@ defmodule MainSupervisor do
     # because we have 2 SSE streams, we will start 2 similar "tree" structure
     Logger.info("[MainSupervisor] start_streams_supervisors #{streams_supervisor_name}")
     Enum.map(
-      1..2,
+      1..@streams_no,
       fn index ->
         {:ok, pid} = DynamicSupervisor.start_child(
           streams_supervisor_name,

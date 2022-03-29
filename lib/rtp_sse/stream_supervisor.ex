@@ -53,6 +53,13 @@ defmodule StreamSupervisor do
       }
     )
 
+    # User Engagement ratio
+    Logger.info("Starting a new UserEngagement aggregator")
+    {:ok, userEngagementAggregatorPID} = Supervisor.start_child(
+      stream_supervisor_name,
+      {App.UserEngagement, Map.merge(args, d(%{dbServicePID}))}
+    )
+
     # Batcher
     Logger.info("Starting a new Batcher actor")
     {:ok, batcherPID} = Supervisor.start_child(
@@ -85,7 +92,7 @@ defmodule StreamSupervisor do
     )
 
     # Engagement worker pool
-    engagementWorkerArgs = Map.merge(args, d(%{aggregatorPID}))
+    engagementWorkerArgs = Map.merge(args, d(%{aggregatorPID, userEngagementAggregatorPID}))
     Logger.info("Starting a new Engagement worker pool")
     {:ok, engagementWorkerPoolPID} = DynamicSupervisor.start_child(
       engagement_pool_supervisor_name,

@@ -31,7 +31,7 @@ defmodule Worker.Engagement do
   """
   @impl true
   def handle_cast({:work, tweet_data, poolPID}, state) do
-    d(%{aggregatorPID}) = state
+    d(%{aggregatorPID, userEngagementAggregatorPID}) = state
 
     # check for retweet
     case Utils.is_retweet(tweet_data) do
@@ -44,6 +44,7 @@ defmodule Worker.Engagement do
     favorite_count = tweet_data["message"]["tweet"]["favorite_count"]
     retweet_count = tweet_data["message"]["tweet"]["retweet_count"]
     followers_count = tweet_data["message"]["tweet"]["user"]["followers_count"]
+    user_id = tweet_data["message"]["tweet"]["user"]["id_str"]
 
     score = calculate_score(favorite_count, retweet_count, followers_count)
 
@@ -54,6 +55,7 @@ defmodule Worker.Engagement do
       }
     )
 
+    App.UserEngagement.add_user_engagement(userEngagementAggregatorPID, user_id, score, result)
     App.Aggregator.process_tweet_engagement_score(aggregatorPID, result)
     {:noreply, state}
   end
