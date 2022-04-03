@@ -1,16 +1,19 @@
-defmodule RTP_SSE.HashtagsWorker do
+defmodule App.Hashtag do
   @moduledoc """
   Usage:
   print hashtags statistics to the terminal
       iex> RTP_SSE.HashtagsWorker.show_stats
-  
+
   save hashtags statistics as `JSON` (file `hashtag_stats.json`)
       iex> RTP_SSE.HashtagsWorker.download_stats
   """
+
+  @hashtags_flush_time Application.fetch_env!(:rtp_sse, :hashtags_flush_time)
+
   use GenServer
   require Logger
 
-  def start_link(opts \\ []) do
+  def start_link(_args, opts \\ []) do
     GenServer.start_link(__MODULE__, %{}, opts)
   end
 
@@ -20,28 +23,44 @@ defmodule RTP_SSE.HashtagsWorker do
   If the tweet has some tags it will add in our state map
   and update tag occurrence respectively
   """
-  def process_hashtags(tweet) do
-    GenServer.cast(__MODULE__, {:process_hashtags, tweet})
+  def process_hashtags(pid, tweet) do
+    GenServer.cast(pid, {:process_hashtags, tweet})
   end
 
   @doc """
   Display the sorted tag statistics
   """
-  def show_stats() do
-    GenServer.cast(__MODULE__, {:show_stats})
+  def show_stats(pid) do
+    GenServer.cast(pid, {:show_stats})
   end
 
   @doc """
   Saves the hashtags statistics in JSON file `hashtag_stats.json`
   """
-  def download_stats() do
-    GenServer.cast(__MODULE__, {:download_stats})
+  def download_stats(pid) do
+    GenServer.cast(pid, {:download_stats})
+  end
+
+  ## Privates
+
+  defp download_hashtags_loop() do
+    # Will constantly save tweets & users into database in a 3 sec timeframe,
+    # using only the @max_batch_size will produce data loss if the last
+    # batch has less elements then our max size
+    selfPID = self()
+    spawn(
+      fn ->
+        Process.sleep(@hashtags_flush_time)
+        App.Hashtag.download_stats(selfPID)
+      end
+    )
   end
 
   ## Callbacks
 
   @impl true
   def init(state) do
+    download_hashtags_loop()
     {:ok, state}
   end
 
@@ -62,16 +81,19 @@ defmodule RTP_SSE.HashtagsWorker do
 
     sorted
     |> Enum.with_index()
-    |> Enum.each(fn {{tag, occurrence}, index} ->
-      # remove last element comma in JSON
-      if index == length(sorted) - 1 do
-        IO.binwrite(file, '\t"#{tag}": #{occurrence}\r\n')
-      else
-        IO.binwrite(file, '\t"#{tag}": #{occurrence},\r\n')
-      end
-    end)
+    |> Enum.each(
+         fn {{tag, occurrence}, index} ->
+           # remove last element comma in JSON
+           if index == length(sorted) - 1 do
+             IO.binwrite(file, '\t"#{tag}": #{occurrence}\r\n')
+           else
+             IO.binwrite(file, '\t"#{tag}": #{occurrence},\r\n')
+           end
+         end
+       )
 
     IO.binwrite(file, "}")
+    download_hashtags_loop()
     {:noreply, stats}
   end
 

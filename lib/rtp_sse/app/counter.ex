@@ -1,7 +1,10 @@
-defmodule RTP_SSE.TweetsCounter do
+defmodule App.Counter do
   import Destructure
   use GenServer
   require Logger
+
+  @autoscaler_time_frame Application.fetch_env!(:rtp_sse, :autoscaler_time_frame)
+  @enable_autoscaler Application.fetch_env!(:rtp_sse, :enable_autoscaler)
 
   def start_link(args, opts \\ []) do
     state = Map.put(args, :counter, 0)
@@ -16,10 +19,12 @@ defmodule RTP_SSE.TweetsCounter do
 
     # Note! `self()` inside the spawn will be the inner process,
     # but we need the counter process
-    spawn(fn ->
-      Process.sleep(1000)
-      GenServer.cast(counterPID, {:reset_counter})
-    end)
+    spawn(
+      fn ->
+        Process.sleep(@autoscaler_time_frame)
+        GenServer.cast(counterPID, {:reset_counter})
+      end
+    )
   end
 
   ## Callbacks
@@ -32,8 +37,16 @@ defmodule RTP_SSE.TweetsCounter do
 
   @impl true
   def handle_cast({:reset_counter}, state) do
-    d(%{routerPID, counter}) = state
-    GenServer.cast(routerPID, {:autoscale, counter})
+    d(%{workerPoolPIDs, counter}) = state
+    # Iterate over worker pools and autoscale them
+    Enum.map(
+      workerPoolPIDs,
+      fn pid ->
+        if (@enable_autoscaler == true) do
+          GenServer.cast(pid, {:autoscale, counter})
+        end
+      end
+    )
     reset_counter_loop()
     {:noreply, %{state | counter: 0}}
   end

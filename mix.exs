@@ -22,7 +22,9 @@ defmodule RTP_SSE.MixProject do
     [
       {:eventsource_ex, "~> 0.0.2"},
       {:poison, "~> 3.1"},
-      {:destructure, "~> 0.2.3"}
+      {:mongodb_driver, "~> 0.8.3"},
+      {:destructure, "~> 0.2.3"},
+      {:statistics, "~> 0.6.2"}
     ]
   end
 end
