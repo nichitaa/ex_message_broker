@@ -133,7 +133,7 @@ Another batcher that only works with tweet engagement score, it saves them as a 
 Calculates the engagement score of a tweet based on the following formula `score = (favorites + retweets) / followers`. Sends to the `Aggregator` and `UserEngagement` the score together with all formula arguments.
 
 ### `Sentiment`
-Computes the sentiments score based on tweet text. We have [this huge](./lib/rtp_sse/tweet_processor/emotion_values.ex) map of word-score values that we look in for each word from a tweet, `score` is equal with the mean of those values.
+Computes the sentiments score based on tweet text. We have [this huge](./lib/rtp_sse/utils/emotion_values.ex) map of word-score values that we look in for each word from a tweet, `score` is equal with the mean of those values.
 
 ### `Logger`
 Each tweet will go thru it, and will be firstly displayed on the client terminal. The Logger worker will handle panic messages and parsing tweet data, then it will route the tweet to the`Sentiments` and `Engagement` worker pools as well as to the `Hastag` statistic actor.
