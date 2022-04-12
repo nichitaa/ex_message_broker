@@ -14,7 +14,8 @@ defmodule App.Batcher do
         dbServicePID,
         tweets: [],
         users: [],
-        count: 0
+        count: 0,
+        timer: nil
       }
     )
     GenServer.start_link(__MODULE__, state, opts)
@@ -28,19 +29,6 @@ defmodule App.Batcher do
 
   ## Privates
 
-  defp flush_state_loop() do
-    # Will constantly save tweets & users into database in a 3 sec timeframe,
-    # using only the @max_batch_size will produce data loss if the last
-    # batch has less elements then our max size
-    selfPID = self()
-    spawn(
-      fn ->
-        Process.sleep(@batcher_flush_time)
-        GenServer.cast(selfPID, {:flush_state})
-      end
-    )
-  end
-
   defp save_tweets(dbServicePID, data) do
     App.DBService.bulk_insert_tweets(dbServicePID, data)
   end
@@ -53,8 +41,9 @@ defmodule App.Batcher do
 
   @impl true
   def init(state) do
-     flush_state_loop()
-    {:ok, state}
+    # initiate a new timer
+    timer = Process.send_after(self(), :flush_state, @batcher_flush_time)
+    {:ok, %{state | timer: timer}}
   end
 
   @doc """
@@ -63,7 +52,7 @@ defmodule App.Batcher do
   """
   @impl true
   def handle_cast({:add_tweet, tweet_data}, state) do
-    d(%{tweets, users, count, dbServicePID}) = state
+    d(%{tweets, users, count, dbServicePID, timer}) = state
 
     count = count + 1
     tweets = [tweet_data[:tweet] | tweets]
@@ -72,7 +61,12 @@ defmodule App.Batcher do
     if count >= @max_batch_size do
       save_tweets(dbServicePID, tweets)
       save_users(dbServicePID, users)
-      {:noreply, %{state | tweets: [], users: [], count: 0}}
+
+      # restart the timer if the tweets and users are processed because of size limit
+      Process.cancel_timer(timer)
+      timer = Process.send_after(self(), :flush_state, @batcher_flush_time)
+
+      {:noreply, %{state | tweets: [], users: [], count: 0, timer: timer}}
     else
       {:noreply, %{state | tweets: tweets, users: users, count: count}}
     end
@@ -80,16 +74,16 @@ defmodule App.Batcher do
   end
 
   @impl true
-  def handle_cast({:flush_state}, state) do
-    d(%{tweets, users, count, dbServicePID}) = state
+  def handle_info(:flush_state, state) do
+    d(%{tweets, users, count, dbServicePID, timer}) = state
 
     if count > 0 do
       save_tweets(dbServicePID, tweets)
       save_users(dbServicePID, users)
     end
 
-    flush_state_loop()
-    {:noreply, %{state | tweets: [], users: [], count: 0}}
+    timer = Process.send_after(self(), :flush_state, @batcher_flush_time)
+    {:noreply, %{state | tweets: [], users: [], count: 0, timer: timer}}
   end
 
 end
