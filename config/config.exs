@@ -8,7 +8,7 @@ config :rtp_sse,
        wp_terminate_delay: 4000, # for safe worker termination (each 4 seconds check for empty worker message queue then terminate it)
 
        ss_delay: 100, # stream supervisor delay (start all tree structure after 200ms)
-       sse_base_url: "http://localhost:4000/tweets",
+       sse_base_url: "http://twitter_api:4000/tweets",
 
        sse_start_delay: 2000, # start receiving SSEs after 2 sec
 
@@ -27,7 +27,7 @@ config :rtp_sse,
 
        autoscaler_time_frame: 1000,
 
-       mongo_srv: "mongodb://localhost:27017/rtp_sse_db",
+       mongo_srv: "mongodb://mongodb_service:27017/rtp_sse_db",
        db_bulk_size: 50, # Mongo max bulk size for 200 documents bulk upload
        db_tweets_collection: "tweets", # collection names
        db_users_collection: "users",

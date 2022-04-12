@@ -1,0 +1,20 @@
+version: "3.6"
+services:
+  mongodb_service:
+    image: mongo
+    container_name: mongo_service
+    ports:
+      - 27017:27017
+
+  sse_api:
+    image: alexburlacu/rtp-server:faf18x
+    container_name: sse_api
+    ports:
+      - 4000:4000
+
+  rtp_sse:
+    container_name: rtp_sse
+    build:
+      context: .
+    ports:
+      - 8080:8080
