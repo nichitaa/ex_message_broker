@@ -10,6 +10,15 @@ services:
     ports:
       - 8080:8080
 
+  # Message Broker
+  message_broker:
+    container_name: message_broker
+    build:
+      context: ./message_broker
+      dockerfile: Dockerfile
+    ports:
+      - 8000:8000
+
   # MongoDB
   mongodb_service:
     image: mongo
