@@ -17,4 +17,8 @@ defmodule MessageBroker do
     Supervisor.start_link(children, opts)
   end
 
+  def run_test_snippets() do
+    ["PUBLISH", "tweets", "{\"name\":\"Devin", "Torres\",\"age\":27}"]
+  end
+
 end

@@ -20,6 +20,7 @@ defmodule Server do
   defp loop_acceptor(socket) do
     {:ok, client} = :gen_tcp.accept(socket)
     Logger.info("[MB-Server #{inspect(self())}] New client SOCKET=#{inspect(socket)}, client=#{inspect(client)}")
+    :gen_tcp.send(client, "Successfully connected to message_broker\r\n")
 
     {:ok, pid} =
       Task.Supervisor.start_child(Server.TaskSupervisor, fn -> serve(client) end)
@@ -28,24 +29,15 @@ defmodule Server do
     loop_acceptor(socket)
   end
 
-  defp serve(socket) do
-    with {:ok, data} <- read_line(socket),
-         do: send_response_to_producer(socket, {:ok, "response from MB\r\n"})
-    serve(socket)
+  defp serve(client_socket) do
+    with {:ok, data} <- read_line(client_socket),
+         {:ok, command} <- Command.parse(data),
+         do: Command.run(command, client_socket)
+    serve(client_socket)
   end
 
   defp read_line(socket) do
     :gen_tcp.recv(socket, 0)
-  end
-
-  defp send_response_to_producer(socket, {:ok, text}) do
-    case :gen_tcp.connect('localhost', 8080, [:binary, active: true]) do
-      {:ok, prod_socket} ->
-        Logger.info("MB-Server producer client socket=#{inspect(prod_socket)}")
-        ok = :gen_tcp.send(prod_socket, text)
-      {:error, reason} ->
-        Logger.info("error on sending a response to producer")
-    end
   end
 
   defp write_line(socket, {:ok, text}) do
