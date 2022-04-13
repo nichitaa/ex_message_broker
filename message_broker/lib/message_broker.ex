@@ -8,7 +8,11 @@ defmodule MessageBroker do
   def start(_type, _args) do
     Logger.info("Starting MessageBroker")
 
-    children = []
+    children = [
+      # Server
+      {Task.Supervisor, name: Server.TaskSupervisor},
+      Supervisor.child_spec({Task, fn -> Server.accept(@port) end}, restart: :permanent)
+    ]
     opts = [strategy: :one_for_one, name: RTP_SSE.Supervisor]
     Supervisor.start_link(children, opts)
   end
