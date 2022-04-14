@@ -19,7 +19,7 @@ defmodule Server do
 
   defp loop_acceptor(socket) do
     {:ok, client} = :gen_tcp.accept(socket)
-    Logger.info("[MB-Server #{inspect(self())}] New client SOCKET=#{inspect(socket)}, client=#{inspect(client)}")
+    Logger.info("[MB-Server #{inspect(self())}] New client=#{inspect(client)}")
     :gen_tcp.send(client, "Successfully connected to message_broker\r\n")
 
     {:ok, pid} =

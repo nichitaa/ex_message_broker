@@ -6,7 +6,6 @@ defmodule Command do
   @mb_host Application.fetch_env!(:rtp_sse, :mb_host)
   @mb_port Application.fetch_env!(:rtp_sse, :mb_port)
   @port Application.fetch_env!(:rtp_sse, :port)
-  @mb_delimiter Application.fetch_env!(:rtp_sse, :mb_delimiter)
 
   ## Client API
 

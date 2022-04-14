@@ -6,7 +6,8 @@ config :message_broker,
        tweet_producer_host: 'localhost', # in binary, as expected by :gen_tcp
        tweet_producer_port: 8080,
 
-       delimiter: "|>>>", # delimiter between mb command and data
-       publish_command: "PUBLISH",
-       subscribe_command: "SUBSCRIBE",
-       unsubscribe_command: "UNSUBSCRIBE"
+       # commands
+       publish_command: "pub", # PUBLISH
+       subscribe_command: "sub", # SUBSCRIBE
+       unsubscribe_command: "unsub", # UNSUBSCRIBE
+       acknowledge_command: "ack" # ACKNOWLEDGE

@@ -5,9 +5,9 @@ defmodule Command do
 
   @tweet_producer_host Application.fetch_env!(:message_broker, :tweet_producer_host)
   @tweet_producer_port Application.fetch_env!(:message_broker, :tweet_producer_port)
-  @delimiter Application.fetch_env!(:message_broker, :delimiter)
   @publish_command Application.fetch_env!(:message_broker, :publish_command)
   @subscribe_command Application.fetch_env!(:message_broker, :subscribe_command)
+  @acknowledge_command Application.fetch_env!(:message_broker, :acknowledge_command)
   @unsubscribe_command Application.fetch_env!(:message_broker, :unsubscribe_command)
 
   ## Client API
@@ -21,7 +21,8 @@ defmodule Command do
     case parsed do
       [@publish_command, topic, data] -> {:ok, {:publish, topic, data}}
       [@subscribe_command, topic] -> {:ok, {:subscribe, topic}}
-      [@unsubscribe_command, topic] -> Logger.info("will unsubscribe here")
+      [@unsubscribe_command, topic] -> {:ok, {:unsubscribe, topic}}
+      [@acknowledge_command, topic, id] -> {:ok, :acknowledge, topic, id}
       unknown -> Logger.info("unknown command #{inspect(unknown)}")
     end
 
@@ -30,14 +31,28 @@ defmodule Command do
   def run(command, socket)
 
   def run({:publish, topic, data}, socket) do
-    Logger.info("Received for topic #{inspect(topic)} content #{data}")
-    decoded = Poison.decode!(data, as: %TweetDto{})
+    # decoded = Poison.decode!(data, as: %TweetDto{})
+    Logger.info("Received for topic #{inspect(topic)} decoded=")
+    Controller.add_topic(topic)
+    Controller.publish_to_topic(topic, data)
     {:ok, "[Command] run :publish\r\n"}
   end
 
   def run({:subscribe, topic}, socket) do
     Logger.info("will subscribe for topic #{inspect(topic)}, socket #{inspect(socket)}")
+    Controller.add_subscriber_to_topic(topic, socket)
     {:ok, "[Command] run :subscribe\r\n"}
+  end
+
+  def run({:unsubscribe, topic}, socket) do
+    Logger.info("will unsubscribe from topic=#{inspect(topic)}, socket #{inspect(socket)}")
+    Controller.unsubscribe_from_topic(topic, socket)
+    {:ok, "[Command] run :unsubscribe\r\n"}
+  end
+
+  def run({:acknowledge, topic, id}, socket) do
+    Logger.info("acknowledge for topic=#{inspect(topic)}, message id=#{inspect(id)} socket=#{inspect(socket)}")
+    {:ok, "[Command] run :acknowledge\r\n"}
   end
 
 end

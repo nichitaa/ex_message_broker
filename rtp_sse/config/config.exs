@@ -36,5 +36,4 @@ config :rtp_sse,
        hashtags_flush_time: 3000, # save hashtags to JSON every 3 sec
 
        mb_host: 'localhost', # in binary, as expected by :gen_tcp
-       mb_port: 8000,
-       mb_delimiter: "|>>>" # delimiter between mb command and data
+       mb_port: 8000
