@@ -1,0 +1,44 @@
+{
+  "subscriber": {
+    "topic-1": [
+      {
+        "timestamp": 1650054011933,
+        "msg": "msg",
+        "id": "1"
+      },
+      {
+        "timestamp": 1650054144283,
+        "msg": "msg",
+        "id": "2"
+      }
+    ],
+    "topic-2": [
+      {
+        "timestamp": 1650054011933,
+        "msg": "msg",
+        "id": "1"
+      },
+      {
+        "timestamp": 1650054144283,
+        "msg": "msg",
+        "id": "2"
+      }
+    ]
+  },
+  "#Port<0.8>": {
+    "users": [
+      {
+        "timestamp": 1650054183741,
+        "msg": "a simple text message",
+        "id": "12"
+      }
+    ],
+    "tweets": [
+      {
+        "timestamp": 1650054144283,
+        "msg": "a simple text message",
+        "id": "12"
+      }
+    ]
+  }
+}

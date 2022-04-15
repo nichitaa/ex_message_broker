@@ -31,10 +31,12 @@ defmodule Command do
   def run(command, socket)
 
   def run({:publish, topic, data}, socket) do
-    # decoded = Poison.decode!(data, as: %TweetDto{})
-    Logger.info("Received for topic #{inspect(topic)} decoded=")
-    Controller.add_topic(topic)
-    Controller.publish_to_topic(topic, data)
+    Logger.info("Received for topic #{inspect(topic)} data=#{inspect(data)}")
+    case Util.JsonLog.is_valid_event(data) do
+      {:ok} -> Controller.add_topic(topic)
+               Controller.publish_to_topic(topic, data)
+      {:err, reason} -> Logger.info("received a bad event: #{inspect(data)}")
+    end
     {:ok, "[Command] run :publish\r\n"}
   end
 

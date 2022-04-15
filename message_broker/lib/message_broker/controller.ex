@@ -5,7 +5,7 @@ defmodule Controller do
   require Logger
 
   def start_link(opts \\ []) do
-    state = %{topic_subs: %{}}
+    state = %{topic_subs: %{}, subs: %{}}
     GenServer.start_link(__MODULE__, state, opts)
   end
 
@@ -37,22 +37,18 @@ defmodule Controller do
   @impl true
   def handle_cast({:add_topic, topic}, state) do
     d(%{topic_subs}) = state
-    Logger.info("add_topic initial #{inspect(topic_subs)}")
     if Map.has_key?(topic_subs, topic) do
-      Logger.info("add_topic topic=#{inspect(topic)} already exists")
       {:noreply, state}
     else
       topic_subs = Map.put(topic_subs, topic, [])
-      Logger.info("add_topic after update: #{inspect(topic_subs)}")
       {:noreply, %{state | topic_subs: topic_subs}}
     end
   end
 
   @impl true
   def handle_cast({:add_subscriber_to_topic, topic, sub}, state) do
-    Logger.info("add sub state: #{inspect(state)}")
-    d(%{topic_subs}) = state
-    Logger.info("add_subscriber_to_topic initial #{inspect(topic_subs)}")
+    Logger.info("add_subscriber_to_topic state=#{inspect(state)}")
+    d(%{topic_subs, subs}) = state
     if Map.has_key?(topic_subs, topic) do
       subs = Map.get(topic_subs, topic)
       case Enum.member?(subs, sub) do
@@ -63,11 +59,14 @@ defmodule Controller do
           subs = [sub | subs]
           topic_subs = Map.put(topic_subs, topic, subs)
           :gen_tcp.send(sub, "successfully subscribed to topic #{topic}\r\n")
-          {:noreply, %{state | topic_subs: topic_subs}}
+          {:noreply, %{state | topic_subs: topic_subs, subs: Map.put(state.subs, Kernel.inspect(sub), sub)}}
       end
     else
       :gen_tcp.send(sub, "successfully subscribed to a newly created topic #{topic}\r\n")
-      {:noreply, %{state | topic_subs: Map.put(topic_subs, topic, [sub])}}
+      {
+        :noreply,
+        %{state | topic_subs: Map.put(topic_subs, topic, [sub]), subs: Map.put(subs, Kernel.inspect(sub), sub)}
+      }
     end
   end
 
@@ -95,16 +94,56 @@ defmodule Controller do
 
   @impl true
   def handle_cast({:publish_to_topic, topic, data}, state) do
+    Logger.info("publish_to_topic state=#{inspect(state)}")
     d(%{topic_subs}) = state
+
+    {:ok, logs} = Util.JsonLog.get()
+
     if Map.has_key?(topic_subs, topic) do
-      subs = Map.get(topic_subs, topic)
-      if length(subs) > 0 do
-        Enum.each(
-          subs,
-          fn x ->
-            :gen_tcp.send(x, data)
+
+      # if we have subscribers
+      subscribers_for_topic = Map.get(topic_subs, topic)
+      if length(subscribers_for_topic) > 0 do
+
+        # accumulate logs to update
+        logs = Enum.reduce(
+          # iterate thru this topic subscribers
+          subscribers_for_topic,
+          logs,
+          fn sub, acc_logs ->
+            # send the messages
+            msg = Util.JsonLog.event_to_msg(data)
+            :gen_tcp.send(sub, msg)
+
+            # new log list of the single message log
+            log_list = [Util.JsonLog.event_to_log(data)]
+
+            # update message broker logs
+            Map.update(
+              acc_logs,
+              # convert subscriber Port to String (this is the log key)
+              Kernel.inspect(sub),
+              # default: new Map %{topic: [single_log]}
+              Map.put(%{}, topic, log_list),
+              # in case there exists previous logs for this subscriber, just append to the topics logs list
+              fn prev ->
+                # return new map with updated message for the single topic
+                Map.update(
+                  prev,
+                  topic,
+                  log_list,
+                  fn prev_topics ->
+                    prev_topics ++ log_list
+                  end
+                )
+              end
+            )
           end
         )
+
+        # update message broker logs
+        Util.JsonLog.update(logs)
+
       end
       {:noreply, state}
     else

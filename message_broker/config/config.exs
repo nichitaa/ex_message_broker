@@ -10,4 +10,10 @@ config :message_broker,
        publish_command: "pub", # PUBLISH
        subscribe_command: "sub", # SUBSCRIBE
        unsubscribe_command: "unsub", # UNSUBSCRIBE
-       acknowledge_command: "ack" # ACKNOWLEDGE
+       acknowledge_command: "ack", # ACKNOWLEDGE
+
+       json_filename: "logs.json",
+
+       # some topics for the lab2 (producer)
+       tweets_topic: "tweets",
+       users_topic: "users"

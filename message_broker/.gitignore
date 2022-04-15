@@ -27,3 +27,6 @@ message_broker-*.tar
 
 # Editor
 /.idea/
+
+# Message Broker log file
+/logs.json/
