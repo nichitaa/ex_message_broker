@@ -24,7 +24,8 @@ defmodule RTP_SSE.MixProject do
       {:poison, "~> 3.1"},
       {:mongodb_driver, "~> 0.8.3"},
       {:destructure, "~> 0.2.3"},
-      {:statistics, "~> 0.6.2"}
+      {:statistics, "~> 0.6.2"},
+      {:elixir_uuid, "~> 1.2"}
     ]
   end
 end

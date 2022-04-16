@@ -28,7 +28,7 @@ defmodule Utils do
   def to_tweet_topic_event(tweet) do
     {:ok, serialized} = Poison.encode(
       %{
-        "id": tweet["message"]["tweet"]["id_str"],
+        "id": short_id(),
         "msg": tweet["message"]["tweet"]["text"]
       }
     )
@@ -38,7 +38,7 @@ defmodule Utils do
   def to_user_topic_event(tweet) do
     {:ok, serialized} = Poison.encode(
       %{
-        "id": tweet["message"]["tweet"]["user"]["id_str"],
+        "id": short_id(),
         "msg": tweet["message"]["tweet"]["user"]["screen_name"]
       }
     )
@@ -48,7 +48,7 @@ defmodule Utils do
   def to_stats_topic_event(topic, msg) do
     {:ok, serialized} = Poison.encode(
       %{
-        "id": "123123",
+        "id": short_id(),
         "msg": msg
       }
     )
@@ -58,5 +58,9 @@ defmodule Utils do
   ## Privates
   defp get_publish_command(topic, serialized) do
     @mb_publish_command <> " " <> topic <> " " <> serialized <> "\r\n"
+  end
+
+  defp short_id() do
+    String.slice(UUID.uuid4(), 0..2)
   end
 end
