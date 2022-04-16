@@ -17,44 +17,37 @@ defmodule Command do
     parsed = String.trim(line, "\r\n")
              |> String.split(" ", parts: 3)
 
-    Logger.info("case parsed: #{inspect(length(parsed))} parsed: #{inspect(parsed)}")
+    # Logger.info("parse len=#{inspect(length(parsed))} parsed=#{inspect(parsed)}")
     case parsed do
-      [@publish_command, topic, data] -> {:ok, {:publish, topic, data}}
+      [@publish_command, topic, event] -> {:ok, {:publish, topic, event}}
       [@subscribe_command, topic] -> {:ok, {:subscribe, topic}}
       [@unsubscribe_command, topic] -> {:ok, {:unsubscribe, topic}}
-      [@acknowledge_command, topic, id] -> {:ok, :acknowledge, topic, id}
-      unknown -> Logger.info("unknown command #{inspect(unknown)}")
+      [@acknowledge_command, topic, id] -> {:ok, {:acknowledge, topic, id}}
+      unknown -> Logger.info("error: unknown command #{inspect(unknown)}")
     end
 
   end
 
-  def run(command, socket)
+  def run(command, subscriber)
 
-  def run({:publish, topic, data}, socket) do
-    Logger.info("Received for topic #{inspect(topic)} data=#{inspect(data)}")
-    case Util.JsonLog.is_valid_event(data) do
-      {:ok} -> Controller.add_topic(topic)
-               Controller.publish_to_topic(topic, data)
-      {:err, reason} -> Logger.info("received a bad event: #{inspect(data)}")
+  def run({:publish, topic, event}, _subscriber) do
+    # check if the event is of the right format
+    case Util.JsonLog.is_valid_event(event) do
+      {:ok} -> Controller.publish(topic, event)
+      {:err, reason} -> Logger.info("error: publisher send a bad event=#{inspect(event)}")
     end
-    {:ok, "[Command] run :publish\r\n"}
   end
 
-  def run({:subscribe, topic}, socket) do
-    Logger.info("will subscribe for topic #{inspect(topic)}, socket #{inspect(socket)}")
-    Controller.add_subscriber_to_topic(topic, socket)
-    {:ok, "[Command] run :subscribe\r\n"}
+  def run({:subscribe, topic}, subscriber) do
+    Controller.subscribe(topic, subscriber)
   end
 
-  def run({:unsubscribe, topic}, socket) do
-    Logger.info("will unsubscribe from topic=#{inspect(topic)}, socket #{inspect(socket)}")
-    Controller.unsubscribe_from_topic(topic, socket)
-    {:ok, "[Command] run :unsubscribe\r\n"}
+  def run({:unsubscribe, topic}, subscriber) do
+    Controller.unsubscribe(topic, subscriber)
   end
 
-  def run({:acknowledge, topic, id}, socket) do
-    Logger.info("acknowledge for topic=#{inspect(topic)}, message id=#{inspect(id)} socket=#{inspect(socket)}")
-    {:ok, "[Command] run :acknowledge\r\n"}
+  def run({:acknowledge, topic, id}, subscriber) do
+    Controller.acknowledge(topic, subscriber, id)
   end
 
 end

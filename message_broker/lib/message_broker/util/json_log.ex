@@ -18,17 +18,17 @@ defmodule Util.JsonLog do
     end
   end
 
-  def event_to_msg(event) do
+  def event_to_msg(topic, event) do
     case Poison.decode(event, as: %EventDto{}) do
-      {:ok, dto} -> dto.msg <> "\r\n"
-      {:error, reason} -> "error: publisher send an invalid event" <> "\r\n"
+      {:ok, dto} -> Poison.encode!(%{"msg": dto.msg, "id": dto.id, "topic": topic})
+      _ -> "error: publisher send an invalid event"
     end
   end
 
   def is_valid_event(event) do
     case Poison.decode(event, as: %EventDto{}) do
       {:ok, dto} -> {:ok}
-      {:error, reason} -> {:err, "event is not of an accepted format"}
+      _ -> {:err, "event is not of an accepted format"}
     end
   end
 

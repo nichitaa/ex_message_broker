@@ -1,4 +1,14 @@
 defmodule MessageBroker do
+
+  @moduledoc """
+  # dev test
+  pub tweets {"id":"1","msg":"tweet 1"}
+  pub tweets {"id":"2","msg":"tweet 2"}
+  pub tweets {"id":"3","msg":"tweet 3"}
+  pub users {"id":"1","msg":"usr 1"}
+  """
+
+
   use Application
   require Logger
 
@@ -9,6 +19,7 @@ defmodule MessageBroker do
     Logger.info("Starting MessageBroker")
 
     children = [
+      # Controller
       {Controller, name: Controller},
       # Server
       {Task.Supervisor, name: Server.TaskSupervisor},

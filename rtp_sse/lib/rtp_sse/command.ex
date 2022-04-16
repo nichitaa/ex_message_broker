@@ -28,7 +28,6 @@ defmodule Command do
     case :gen_tcp.connect(@mb_host, @mb_port, [:binary, active: false]) do
       {:ok, mb_socket} ->
         # some tests
-        # {"id":"12","msg":"a simple text message"}
         serialized = "{\"id_str\":\"123123\",\"msg\":\"a simple text message\"}"
         publish = "PUBLISH tweets " <> serialized <> "\r\n"
         subscribe = "SUBSCRIBE tweets" <> "\r\n"
