@@ -35,5 +35,8 @@ config :rtp_sse,
 
        hashtags_flush_time: 3000, # save hashtags to JSON every 3 sec
 
-       mb_host: 'localhost', # in binary, as expected by :gen_tcp
-       mb_port: 8000
+       mb_host: 'localhost', # Message Broker host, in binary, as expected by :gen_tcp
+       mb_port: 8000,
+       mb_publish_command: "pub", # PUBLISH
+       mb_tweets_topic: "tweets",
+       mb_user_topic: "users"

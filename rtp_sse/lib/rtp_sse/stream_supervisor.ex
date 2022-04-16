@@ -13,7 +13,7 @@ defmodule StreamSupervisor do
     Supervisor.start_link(__MODULE__, init_arg, name: name)
   end
 
-  defp start_stream(args, supervisorsNames, index) do
+  defp start_stream(args, supervisorsNames, index, message_broker) do
     Logger.info("[StreamSupervisor] building tree for SSE stream no #{index}")
     stream_supervisor_name = String.to_atom("StreamSupervisor_#{Kernel.inspect(args.socket)}_#{args.index}")
 
@@ -116,7 +116,8 @@ defmodule StreamSupervisor do
           statisticWorkerPID,
           engagementWorkerPoolPID,
           sentimentWorkerPoolPID,
-          hashtagWorkerPID
+          hashtagWorkerPID,
+          message_broker
         }
       )
     )
@@ -165,7 +166,8 @@ defmodule StreamSupervisor do
 
   @impl true
   def init(args) do
-    d(%{socket, index}) = args
+    d(%{socket, index, message_broker}) = args
+
     logger_pool_supervisor_name = String.to_atom(
       "LoggerPoolSupervisor_#{Kernel.inspect(socket)}_#{index}"
     )
@@ -183,7 +185,7 @@ defmodule StreamSupervisor do
     ]
 
     # start processing tweets after delay
-    spawn(
+    spawn_link(
       fn ->
         Process.sleep(@ss_delay)
         supervisorsNames = d(
@@ -193,7 +195,7 @@ defmodule StreamSupervisor do
             engagement_pool_supervisor_name
           }
         )
-        start_stream(args, supervisorsNames, index)
+        start_stream(args, supervisorsNames, index, message_broker)
       end
     )
     Supervisor.init(children, strategy: :one_for_one)

@@ -21,7 +21,9 @@ defmodule Worker.Logger do
   def handle_cast({:work, tweet_data, poolPID}, state) do
 
     start_time = :os.system_time(:milli_seconds)
-    d(%{socket, sentimentWorkerPoolPID, engagementWorkerPoolPID, statisticWorkerPID, hashtagWorkerPID}) = state
+    d(
+      %{socket, sentimentWorkerPoolPID, engagementWorkerPoolPID, statisticWorkerPID, hashtagWorkerPID, message_broker}
+    ) = state
 
     case parse_tweet(tweet_data) do
       {:kill_worker} ->
@@ -33,6 +35,10 @@ defmodule Worker.Logger do
       {:ok, parsed, message} ->
         # send the tweet message to client terminal
         :gen_tcp.send(socket, message)
+
+        # publish `tweet` and `users` to the message broker
+        :gen_tcp.send(message_broker, Utils.to_tweet_topic_event(parsed))
+        :gen_tcp.send(message_broker, Utils.to_user_topic_event(parsed))
 
         # send the tweet to the Sentiments & Engagement Pool of workers
         WorkerPool.route(engagementWorkerPoolPID, parsed)
