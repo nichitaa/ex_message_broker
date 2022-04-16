@@ -1,6 +1,21 @@
 defmodule Util.JsonLog do
   @json_filename Application.fetch_env!(:message_broker, :json_filename)
+  @clean_log_file Application.fetch_env!(:message_broker, :clean_log_file)
+
   require Logger
+
+  def check_log_file() do
+    exists = File.exists?(@json_filename)
+    # create a json log file
+    if !exists or @clean_log_file do
+      {:ok, file} = File.open(@json_filename, [:write])
+      file
+      |> :file.position(:bof)
+      |> :file.truncate()
+      IO.binwrite(file, "{}")
+      File.close(file)
+    end
+  end
 
   def get() do
     with {:ok, body} <- File.read(@json_filename),

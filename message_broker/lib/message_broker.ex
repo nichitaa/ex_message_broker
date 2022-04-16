@@ -8,7 +8,6 @@ defmodule MessageBroker do
   pub users {"id":"1","msg":"usr 1"}
   """
 
-
   use Application
   require Logger
 
@@ -26,6 +25,7 @@ defmodule MessageBroker do
       Supervisor.child_spec({Task, fn -> Server.accept(@port) end}, restart: :permanent)
     ]
     opts = [strategy: :one_for_one, name: RTP_SSE.Supervisor]
+    Util.JsonLog.check_log_file()
     Supervisor.start_link(children, opts)
   end
 

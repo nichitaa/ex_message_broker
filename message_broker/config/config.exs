@@ -5,6 +5,7 @@ config :message_broker,
 
        tweet_producer_host: 'localhost', # in binary, as expected by :gen_tcp
        tweet_producer_port: 8080,
+       clean_log_file: true, # clean log file on application startup
 
        # commands
        publish_command: "pub", # PUBLISH
