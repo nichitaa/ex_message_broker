@@ -38,5 +38,10 @@ config :rtp_sse,
        mb_host: 'localhost', # Message Broker host, in binary, as expected by :gen_tcp
        mb_port: 8000,
        mb_publish_command: "pub", # PUBLISH
+       # topic for this producer app
        mb_tweets_topic: "tweets",
-       mb_user_topic: "users"
+       mb_user_topic: "users",
+       # statistics topics
+       mb_logger_stats_topic: "logger_stats",
+       mb_users_stats_topic: "users_stats",
+       mb_tweets_stats_topic: "tweets_stats"

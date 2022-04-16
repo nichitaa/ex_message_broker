@@ -32,8 +32,7 @@ defmodule Utils do
         "msg": tweet["message"]["tweet"]["text"]
       }
     )
-    publish = @mb_publish_command <> " " <> @mb_tweets_topic <> " " <> serialized <> "\r\n"
-    publish
+    get_publish_command(@mb_tweets_topic, serialized)
   end
 
   def to_user_topic_event(tweet) do
@@ -43,7 +42,21 @@ defmodule Utils do
         "msg": tweet["message"]["tweet"]["user"]["screen_name"]
       }
     )
-    publish = @mb_publish_command <> " " <> @mb_user_topic <> " " <> serialized <> "\r\n"
-    publish
+    get_publish_command(@mb_user_topic, serialized)
+  end
+
+  def to_stats_topic_event(topic, msg) do
+    {:ok, serialized} = Poison.encode(
+      %{
+        "id": "123123",
+        "msg": msg
+      }
+    )
+    get_publish_command(topic, serialized)
+  end
+
+  ## Privates
+  defp get_publish_command(topic, serialized) do
+    @mb_publish_command <> " " <> topic <> " " <> serialized <> "\r\n"
   end
 end

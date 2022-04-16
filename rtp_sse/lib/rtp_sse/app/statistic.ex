@@ -3,8 +3,13 @@ defmodule App.Statistic do
   use GenServer
   require Logger
 
-  def start_link(_args, opts \\ []) do
+  @mb_logger_stats_topic Application.fetch_env!(:rtp_sse, :mb_logger_stats_topic)
+  @mb_users_stats_topic Application.fetch_env!(:rtp_sse, :mb_users_stats_topic)
+  @mb_tweets_stats_topic Application.fetch_env!(:rtp_sse, :mb_tweets_stats_topic)
+
+  def start_link(args, opts \\ []) do
     state = %{
+      message_broker: args.message_broker,
       execution_times: [],
       bulk_tweets_time: [],
       bulk_users_time: [],
@@ -33,6 +38,7 @@ defmodule App.Statistic do
   def handle_cast({:reset_stats_loop}, state) do
     d(
       %{
+        message_broker,
         execution_times,
         bulk_users_time,
         bulk_tweets_time,
@@ -43,60 +49,70 @@ defmodule App.Statistic do
     ) = state
 
     if length(execution_times) > 0 do
+
       first = percentile(execution_times, 75)
       second = percentile(execution_times, 85)
       third = percentile(execution_times, 95)
 
-      Logger.info(
-        "[StatisticWorker #{inspect(self())} - LoggerWorker execution time] Percentile stats 75%=#{first} | 85%=#{
-          second
-        } | 95%=#{third} [#{
-          crashes_nr
-        } CRASHES/5sec]"
-      )
+      stats_info = "[StatisticWorker #{inspect(self())} -  message broker=#{
+        inspect(message_broker)
+      } - LoggerWorker execution time] Percentile stats 75%=#{first} | 85%=#{
+        second
+      } | 95%=#{third} [#{
+        crashes_nr
+      } CRASHES/5sec]"
+
+      Logger.info(stats_info)
+      :gen_tcp.send(message_broker, Utils.to_stats_topic_event(@mb_logger_stats_topic, stats_info))
+
     end
 
     if length(bulk_users_time) > 0 do
+
       first = percentile(bulk_users_time, 75)
       second = percentile(bulk_users_time, 85)
       third = percentile(bulk_users_time, 95)
 
-      Logger.info(
-        "[StatisticWorker #{inspect(self())} - Bulk `users` insert stats] Execution time percentile 75%=#{
-          first
-        } | 85%=#{
-          second
-        } | 95%=#{third} [processed=#{inspect(ingested_users)}]"
-      )
+      stats_info = "[StatisticWorker #{inspect(self())} - Bulk `users` insert stats] Execution time percentile 75%=#{
+        first
+      } | 85%=#{
+        second
+      } | 95%=#{third} [processed=#{inspect(ingested_users)}]"
+
+      Logger.info(stats_info)
+      :gen_tcp.send(message_broker, Utils.to_stats_topic_event(@mb_users_stats_topic, stats_info))
+
     end
 
     if length(bulk_tweets_time) > 0 do
+
       first = percentile(bulk_tweets_time, 75)
       second = percentile(bulk_tweets_time, 85)
       third = percentile(bulk_tweets_time, 95)
 
-      Logger.info(
-        "[StatisticWorker #{inspect(self())} - Bulk `tweets` insert stats] Execution time percentile 75%=#{
-          first
-        } | 85%=#{
-          second
-        } | 95%=#{third} [processed=#{inspect(ingested_tweets)}]"
-      )
+      stats_info = "[StatisticWorker #{inspect(self())} - Bulk `tweets` insert stats] Execution time percentile 75%=#{
+        first
+      } | 85%=#{
+        second
+      } | 95%=#{third} [processed=#{inspect(ingested_tweets)}]"
+
+      Logger.info(stats_info)
+      :gen_tcp.send(message_broker, Utils.to_stats_topic_event(@mb_tweets_stats_topic, stats_info))
+
     end
 
     reset_stats_loop()
     {
       :noreply,
-      d(
-        %{
-          execution_times: [],
-          bulk_tweets_time: [],
-          bulk_users_time: [],
-          ingested_tweets: 0,
-          ingested_users: 0,
-          crashes_nr: 0
-        }
-      )
+      %{
+        state |
+        execution_times: [],
+        bulk_tweets_time: [],
+        bulk_users_time: [],
+        ingested_tweets: 0,
+        ingested_users: 0,
+        crashes_nr: 0
+      }
     }
   end
 
