@@ -2,10 +2,10 @@ defmodule MessageBroker do
 
   @moduledoc """
   # dev test
-  pub tweets {"id":"1","msg":"tweet 1"}
-  pub tweets {"id":"2","msg":"tweet 2"}
-  pub tweets {"id":"3","msg":"tweet 3"}
-  pub users {"id":"1","msg":"usr 1"}
+  pub tweets {"id":"1", "priority": 3, "msg":"tweet 1"}
+  pub tweets {"id":"2", "priority": 4, "msg":"tweet 2"}
+  pub tweets {"id":"3", "priority": 2, "msg":"tweet 3"}
+  pub tweets {"id":"4", "priority": 5, "msg":"tweet 4"}
   """
 
   use Application

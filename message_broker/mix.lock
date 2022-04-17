@@ -1,4 +1,5 @@
 %{
   "destructure": {:hex, :destructure, "0.2.3", "ee05a620c501a19d147782e3ae4f6a9746af05e42b342bba66e6fa43d94af93d", [:mix], [], "hexpm", "e962f5c740ae2c31c944a42c6f3a53b5abb4ac69566b963ce7a69fc18ff5ad82"},
   "poison": {:hex, :poison, "3.1.0", "d9eb636610e096f86f25d9a46f35a9facac35609a7591b3be3326e99a0484665", [:mix], [], "hexpm", "fec8660eb7733ee4117b85f55799fd3833eb769a6df71ccf8903e8dc5447cfce"},
+  "psq": {:hex, :psq, "0.1.0", "32a16052bac6d2432366fc9c0dc0e03d2222ed8d194856598d7e3917d98724f2", [:mix], [], "hexpm", "56c8ab450e26ce20d4cd819022658c66302795b2217aa3f3550942a3ab9d226a"},
 }

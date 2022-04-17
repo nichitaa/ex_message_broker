@@ -29,7 +29,8 @@ defmodule Utils do
     {:ok, serialized} = Poison.encode(
       %{
         "id": short_id(),
-        "msg": tweet["message"]["tweet"]["text"]
+        "msg": tweet["message"]["tweet"]["text"],
+        "priority": Enum.random(0..6)
       }
     )
     get_publish_command(@mb_tweets_topic, serialized)
@@ -39,7 +40,8 @@ defmodule Utils do
     {:ok, serialized} = Poison.encode(
       %{
         "id": short_id(),
-        "msg": tweet["message"]["tweet"]["user"]["screen_name"]
+        "msg": tweet["message"]["tweet"]["user"]["screen_name"],
+        "priority": Enum.random(0..6)
       }
     )
     get_publish_command(@mb_user_topic, serialized)
@@ -49,7 +51,8 @@ defmodule Utils do
     {:ok, serialized} = Poison.encode(
       %{
         "id": short_id(),
-        "msg": msg
+        "msg": msg,
+        "priority": Enum.random(0..6)
       }
     )
     get_publish_command(topic, serialized)

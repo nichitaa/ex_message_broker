@@ -3,5 +3,5 @@ defmodule EventDto do
   Generic event DTO for all incoming messages from our producers
   """
   @derive [Poison.Encoder]
-  defstruct [:id, :msg]
+  defstruct [:id, :msg, :priority]
 end

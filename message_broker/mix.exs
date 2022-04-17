@@ -21,7 +21,8 @@ defmodule MessageBroker.MixProject do
   defp deps do
     [
       {:poison, "~> 3.1"},
-      {:destructure, "~> 0.2.3"}
+      {:destructure, "~> 0.2.3"},
+      {:psq, "~> 0.1.0"}
     ]
   end
 end

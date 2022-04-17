@@ -124,28 +124,33 @@ defmodule Controller do
 
           # check if there are messages in the corresponding topics list
           if subscriber_logs != nil and length(subscriber_logs) > 0 do
-            first_event = List.first(subscriber_logs)
 
-            # remove the event from logs (first in list and must have the same event_id)
-            if first_event["id"] == event_id do
-              subscriber_logs = List.delete_at(subscriber_logs, 0)
+            subscriber_logs_pq = Util.JsonLog.list_to_pq(subscriber_logs)
+            # get by event id
+            ack_event = PSQ.get(subscriber_logs_pq, event_id)
+
+            if ack_event != nil do
+              subscriber_logs_pq = PSQ.delete(subscriber_logs_pq, event_id)
+              subscriber_logs = Util.JsonLog.pq_to_list(subscriber_logs_pq)
               logs = Kernel.put_in(
                 logs,
                 [Kernel.inspect(subscriber), topic],
                 subscriber_logs
               )
+
               # update message broker logs
               Util.JsonLog.update(logs)
 
               # send the next event to the subscriber, so it can send a new ack
               if length(subscriber_logs) > 0 do
-                {:ok, next_event} = Poison.encode(List.first(subscriber_logs))
+                {next_log, _pq} = PSQ.pop(subscriber_logs_pq)
+                {:ok, next_event} = Poison.encode(next_log)
                 msg = Util.JsonLog.event_to_msg(topic, next_event)
                 Server.notify(subscriber, msg)
               end
 
             else
-              Server.notify(subscriber, "error: did not receive ack for event #{first_event["id"]}")
+              Server.notify(subscriber, "error: event with id #{event_id} does not exists")
             end
           end
 
@@ -198,25 +203,30 @@ defmodule Controller do
               Server.notify(subscriber, msg)
             end
 
-            # new log list of the single message log
-            log_list = [Util.JsonLog.event_to_log(event)]
+            # new log event
+            event_log = Util.JsonLog.event_to_log(event)
 
             # update message broker logs
             Map.update(
               acc_logs,
               # convert subscriber Port to String (this is the log key)
               Kernel.inspect(subscriber),
-              # default: new Map %{topic: [single_log]}
-              Map.put(%{}, topic, log_list),
+              # default: new Map %{topic: [event_log]}
+              Map.put(%{}, topic, [event_log]),
               # in case there exists previous logs for this subscriber, just append to the topics logs list
               fn prev ->
                 # return new map with updated message for the single topic
                 Map.update(
                   prev,
                   topic,
-                  log_list,
-                  fn prev_topics ->
-                    prev_topics ++ log_list
+                  [event_log],
+                  fn prev_topic_logs ->
+                    # priority queue
+                    pq = Util.JsonLog.list_to_pq(prev_topic_logs)
+                    Logger.info("event_log=#{inspect(event_log)}")
+                    pq = PSQ.put(pq, event_log)
+                    list = Util.JsonLog.pq_to_list(pq)
+                    list
                   end
                 )
               end

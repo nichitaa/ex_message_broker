@@ -23,7 +23,7 @@ defmodule Command do
       [@subscribe_command, topic] -> {:ok, {:subscribe, topic}}
       [@unsubscribe_command, topic] -> {:ok, {:unsubscribe, topic}}
       [@acknowledge_command, topic, id] -> {:ok, {:acknowledge, topic, id}}
-      unknown -> Logger.info("error: unknown command #{inspect(unknown)}")
+      unknown -> {:ok, {:error_unknown_command, unknown}}
     end
 
   end
@@ -50,6 +50,10 @@ defmodule Command do
 
   def run({:acknowledge, topic, id}, subscriber) do
     Controller.acknowledge(topic, subscriber, id)
+  end
+
+  def run({:error_unknown_command, command}, subscriber) do
+    Server.notify(subscriber, "error: unknown command: #{inspect(command)}")
   end
 
 end
