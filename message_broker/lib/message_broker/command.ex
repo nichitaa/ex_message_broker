@@ -30,11 +30,11 @@ defmodule Command do
 
   def run(command, subscriber)
 
-  def run({:publish, topic, event}, subscriber) do
+  def run({:publish, topic, event}, publisher) do
     # check if the event is of the right format
     case Util.JsonLog.is_valid_event(event) do
       {:ok} ->
-        Logger.info(":publish topic=#{topic} subscriber=#{inspect(subscriber)} event=#{inspect(event)}")
+        Logger.info(":publish topic=#{topic} publisher=#{inspect(publisher)} event=#{inspect(event)}")
         Controller.publish(topic, event)
       {:err, reason} -> Logger.info("error: publisher send a bad event=#{inspect(event)}")
     end

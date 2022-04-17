@@ -223,7 +223,6 @@ defmodule Controller do
                   fn prev_topic_logs ->
                     # priority queue
                     pq = Util.JsonLog.list_to_pq(prev_topic_logs)
-                    Logger.info("event_log=#{inspect(event_log)}")
                     pq = PSQ.put(pq, event_log)
                     list = Util.JsonLog.pq_to_list(pq)
                     list
