@@ -13,7 +13,7 @@ config :message_broker,
        unsubscribe_command: "unsub", # UNSUBSCRIBE
        acknowledge_command: "ack", # ACKNOWLEDGE
 
-       json_filename: "logs.json",
+       logs_dir: "logs", # logs directory
 
        # some topics for the lab2 (producer)
        tweets_topic: "tweets",

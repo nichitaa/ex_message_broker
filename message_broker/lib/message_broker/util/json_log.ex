@@ -1,14 +1,22 @@
 defmodule Util.JsonLog do
-  @json_filename Application.fetch_env!(:message_broker, :json_filename)
+  @logs_dir Application.fetch_env!(:message_broker, :logs_dir)
   @clean_log_file Application.fetch_env!(:message_broker, :clean_log_file)
 
   require Logger
 
-  def check_log_file() do
-    exists = File.exists?(@json_filename)
+  def clear_logs_on_startup() do
+    if @clean_log_file do
+      File.rm_rf(@logs_dir)
+    end
+  end
+
+  def check_log_file(topic) do
+    path = "#{@logs_dir}/#{topic}.json"
+    exists = File.exists?(path)
     # create a json log file
-    if !exists or @clean_log_file do
-      {:ok, file} = File.open(@json_filename, [:write])
+    if !exists do
+      File.mkdir_p!(Path.dirname(path))
+      {:ok, file} = File.open(path, [:write])
       file
       |> :file.position(:bof)
       |> :file.truncate()
@@ -17,13 +25,15 @@ defmodule Util.JsonLog do
     end
   end
 
-  def get() do
-    with {:ok, body} <- File.read(@json_filename),
+  def get(topic) do
+    path = "#{@logs_dir}/#{topic}.json"
+    with {:ok, body} <- File.read(path),
          {:ok, json} <- Poison.decode(body), do: {:ok, json}
   end
 
-  def update(content) do
-    File.write(@json_filename, Poison.encode!(content), [:binary])
+  def update(topic, updated_logs) do
+    path = "#{@logs_dir}/#{topic}.json"
+    File.write(path, Poison.encode!(updated_logs), [:binary])
   end
 
   def event_to_log(event) do

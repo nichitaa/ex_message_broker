@@ -25,7 +25,8 @@ defmodule MessageBroker do
       Supervisor.child_spec({Task, fn -> Server.accept(@port) end}, restart: :permanent)
     ]
     opts = [strategy: :one_for_one, name: RTP_SSE.Supervisor]
-    Util.JsonLog.check_log_file()
+
+    Util.JsonLog.clear_logs_on_startup()
     Supervisor.start_link(children, opts)
   end
 

@@ -82,12 +82,12 @@ defmodule Controller do
           Server.notify(subscriber, "successfully unsubscribe from topic #{topic}")
 
           # clean-up the logs message for this topic
-          {:ok, logs} = Util.JsonLog.get()
-          subscriber_logs = logs[Kernel.inspect(subscriber)][topic]
+          {:ok, logs} = Util.JsonLog.get(topic)
+          subscriber_logs = logs[Kernel.inspect(subscriber)]
           if subscriber_logs != nil and length(subscriber_logs) > 0 do
-            {_, logs} = Kernel.pop_in(logs, [Kernel.inspect(subscriber), topic])
+            {_, logs} = Kernel.pop_in(logs, [Kernel.inspect(subscriber)])
             # update message broker logs
-            Util.JsonLog.update(logs)
+            Util.JsonLog.update(topic, logs)
           end
 
           {
@@ -116,11 +116,10 @@ defmodule Controller do
       topic_subscribers = Map.get(subscriptions, topic)
       case Enum.member?(topic_subscribers, subscriber) do
         true ->
-
-          {:ok, logs} = Util.JsonLog.get()
+          {:ok, logs} = Util.JsonLog.get(topic)
 
           # subscriber exists
-          subscriber_logs = logs[Kernel.inspect(subscriber)][topic]
+          subscriber_logs = logs[Kernel.inspect(subscriber)]
 
           # check if there are messages in the corresponding topics list
           if subscriber_logs != nil and length(subscriber_logs) > 0 do
@@ -134,12 +133,12 @@ defmodule Controller do
               subscriber_logs = Util.JsonLog.pq_to_list(subscriber_logs_pq)
               logs = Kernel.put_in(
                 logs,
-                [Kernel.inspect(subscriber), topic],
+                [Kernel.inspect(subscriber)],
                 subscriber_logs
               )
 
               # update message broker logs
-              Util.JsonLog.update(logs)
+              Util.JsonLog.update(topic, logs)
 
               # send the next event to the subscriber, so it can send a new ack
               if length(subscriber_logs) > 0 do
@@ -180,6 +179,9 @@ defmodule Controller do
         subscriptions
       end
 
+    # check topic log file
+    Util.JsonLog.check_log_file(topic)
+
     if Map.has_key?(subscriptions, topic) do
 
       # if we have subscribers
@@ -187,7 +189,7 @@ defmodule Controller do
       if length(topic_subscribers) > 0 do
 
         # get all message broker logs
-        {:ok, logs} = Util.JsonLog.get()
+        {:ok, logs} = Util.JsonLog.get(topic)
 
         # accumulate logs to update
         logs = Enum.reduce(
@@ -197,7 +199,7 @@ defmodule Controller do
           fn subscriber, acc_logs ->
 
             # send the message to the subscriber only if previous message have been acknowledged
-            sub_logs_for_topic = logs[Kernel.inspect(subscriber)][topic]
+            sub_logs_for_topic = logs[Kernel.inspect(subscriber)]
             if sub_logs_for_topic == nil or length(sub_logs_for_topic) == 0 do
               msg = Util.JsonLog.event_to_msg(topic, event)
               Server.notify(subscriber, msg)
@@ -211,30 +213,22 @@ defmodule Controller do
               acc_logs,
               # convert subscriber Port to String (this is the log key)
               Kernel.inspect(subscriber),
-              # default: new Map %{topic: [event_log]}
-              Map.put(%{}, topic, [event_log]),
+              # default: [event_log]
+              [event_log],
               # in case there exists previous logs for this subscriber, just append to the topics logs list
               fn prev ->
-                # return new map with updated message for the single topic
-                Map.update(
-                  prev,
-                  topic,
-                  [event_log],
-                  fn prev_topic_logs ->
-                    # priority queue
-                    pq = Util.JsonLog.list_to_pq(prev_topic_logs)
-                    pq = PSQ.put(pq, event_log)
-                    list = Util.JsonLog.pq_to_list(pq)
-                    list
-                  end
-                )
+                # priority queue
+                pq = Util.JsonLog.list_to_pq(prev)
+                pq = PSQ.put(pq, event_log)
+                list = Util.JsonLog.pq_to_list(pq)
+                list
               end
             )
           end
         )
 
         # update message broker logs
-        Util.JsonLog.update(logs)
+        Util.JsonLog.update(topic, logs)
       end
     end
 

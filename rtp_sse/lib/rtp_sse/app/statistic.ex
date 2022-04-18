@@ -54,9 +54,7 @@ defmodule App.Statistic do
       second = percentile(execution_times, 85)
       third = percentile(execution_times, 95)
 
-      stats_info = "[StatisticWorker #{inspect(self())} -  message broker=#{
-        inspect(message_broker)
-      } - LoggerWorker execution time] Percentile stats 75%=#{first} | 85%=#{
+      stats_info = "[StatisticWorker #{inspect(self())} - LoggerWorker execution time] Percentile stats 75%=#{first} | 85%=#{
         second
       } | 95%=#{third} [#{
         crashes_nr
