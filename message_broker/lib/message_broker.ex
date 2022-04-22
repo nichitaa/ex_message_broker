@@ -20,6 +20,7 @@ defmodule MessageBroker do
     children = [
       # Controller
       {Controller, name: Controller},
+      {Util.JsonLog, name: Util.JsonLog},
       # Server
       {Task.Supervisor, name: Server.TaskSupervisor},
       Supervisor.child_spec({Task, fn -> Server.accept(@port) end}, restart: :permanent)

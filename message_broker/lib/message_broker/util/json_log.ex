@@ -2,7 +2,18 @@ defmodule Util.JsonLog do
   @logs_dir Application.fetch_env!(:message_broker, :logs_dir)
   @clean_log_file Application.fetch_env!(:message_broker, :clean_log_file)
 
+  import Destructure
+  use GenServer
   require Logger
+
+  def start_link(opts \\ []) do
+    GenServer.start_link(__MODULE__, %{}, opts)
+  end
+
+  @impl true
+  def init(state) do
+    {:ok, state}
+  end
 
   def clear_logs_on_startup() do
     if @clean_log_file do
@@ -26,14 +37,28 @@ defmodule Util.JsonLog do
   end
 
   def get(topic) do
-    path = "#{@logs_dir}/#{topic}.json"
-    with {:ok, body} <- File.read(path),
-         {:ok, json} <- Poison.decode(body), do: {:ok, json}
+    GenServer.call(__MODULE__, {:get, topic})
   end
 
+  @impl true
+  def handle_call({:get, topic}, _from, state) do
+    path = "#{@logs_dir}/#{topic}.json"
+    response =
+      with {:ok, body} <- File.read(path),
+           {:ok, json} <- Poison.decode(body), do: {:ok, json}
+    {:reply, response, state}
+  end
+
+
   def update(topic, updated_logs) do
+    GenServer.cast(__MODULE__, {:update, topic, updated_logs})
+  end
+
+  @impl true
+  def handle_cast({:update, topic, updated_logs}, state) do
     path = "#{@logs_dir}/#{topic}.json"
     File.write(path, Poison.encode!(updated_logs), [:binary])
+    {:noreply, state}
   end
 
   def event_to_log(event) do
