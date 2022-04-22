@@ -18,9 +18,14 @@ defmodule MessageBroker do
     Logger.info("Starting MessageBroker")
 
     children = [
-      # Controller
-      {Controller, name: Controller},
+      {Counter, name: Counter},
+      {Manager, name: Manager},
       {Util.JsonLog, name: Util.JsonLog},
+      {
+        WorkerPool,
+        %{name: WorkerPool, worker: Controller, workerArgs: [], pool_supervisor_name: WorkerPoolDynamicSupervisor}
+      },
+      {DynamicSupervisor, name: WorkerPoolDynamicSupervisor, strategy: :one_for_one},
       # Server
       {Task.Supervisor, name: Server.TaskSupervisor},
       Supervisor.child_spec({Task, fn -> Server.accept(@port) end}, restart: :permanent)

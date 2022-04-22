@@ -35,21 +35,22 @@ defmodule Command do
     case Util.JsonLog.is_valid_event(event) do
       {:ok} ->
         # Logger.info(":publish topic=#{topic} publisher=#{inspect(publisher)} event=#{inspect(event)}")
-        Controller.publish(topic, event)
+        Counter.increment()
+        Manager.publish(topic, event)
       {:err, reason} -> Logger.info("error: publisher send a bad event=#{inspect(event)}")
     end
   end
 
   def run({:subscribe, topic}, subscriber) do
-    Controller.subscribe(topic, subscriber)
+    Manager.subscribe(topic, subscriber)
   end
 
   def run({:unsubscribe, topic}, subscriber) do
-    Controller.unsubscribe(topic, subscriber)
+    Manager.unsubscribe(topic, subscriber)
   end
 
   def run({:acknowledge, topic, id}, subscriber) do
-    Controller.acknowledge(topic, subscriber, id)
+    Manager.acknowledge(topic, subscriber, id)
   end
 
   def run({:error_unknown_command, command}, subscriber) do

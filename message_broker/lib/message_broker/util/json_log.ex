@@ -7,11 +7,13 @@ defmodule Util.JsonLog do
   require Logger
 
   def start_link(opts \\ []) do
+    # Logger.info("util json log start_link opts=#{inspect(opts)}")
     GenServer.start_link(__MODULE__, %{}, opts)
   end
 
   @impl true
   def init(state) do
+    # Logger.info("util json log init")
     {:ok, state}
   end
 
