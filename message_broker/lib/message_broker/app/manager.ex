@@ -43,18 +43,7 @@ defmodule App.Manager do
 
   @impl true
   def handle_cast({:unsubscribe, topic, subscriber}, state) do
-    Agent.Subscriptions.remove_subscriber(topic, subscriber)
-
-    # clean-up the logs message for this topic
-    {:ok, logs} = Util.JSONLog.get(topic)
-    subscriber_logs = logs[Kernel.inspect(subscriber)]
-    if subscriber_logs != nil and length(subscriber_logs) > 0 do
-      {_, logs} = Kernel.pop_in(logs, [Kernel.inspect(subscriber)])
-      # update message broker logs
-      Util.JSONLog.update(topic, logs)
-    end
-    Agent.Events.remove_subscriber_events(topic, subscriber)
-    Server.notify(subscriber, "successfully unsubscribe from topic #{topic}")
+    App.WorkerPool.route({:unsubscribe, topic, subscriber})
     {:noreply, state}
   end
 
