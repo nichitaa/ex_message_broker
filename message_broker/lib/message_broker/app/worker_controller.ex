@@ -33,7 +33,7 @@ defmodule Worker.Controller do
         logs_list = Util.JSONLog.pq_to_list(pq)
         updated_topic_logs = Map.put(topic_logs, Kernel.inspect(subscriber), logs_list)
         Util.JSONLog.update(topic, updated_topic_logs)
-        Agent.Subscriptions.update_subscriber_event_counter(subscriber, :decrement)
+        Agent.Subscriptions.update_subscriber_event_counter(subscriber, topic, :decrement)
         send_next_event(topic, subscriber)
       else
         Server.notify(subscriber, "error: no event with id=#{event_id} in logs")
@@ -68,7 +68,7 @@ defmodule Worker.Controller do
           {:ok, success_msg} ->
             # successfully acknowledged a message from Agent.Events state
             Server.notify(subscriber, success_msg)
-            Agent.Subscriptions.update_subscriber_event_counter(subscriber, :decrement)
+            Agent.Subscriptions.update_subscriber_event_counter(subscriber, topic, :decrement)
             send_next_event(topic, subscriber)
           {:err, err_msg} ->
             # could not acknowledge a message from current state
@@ -96,6 +96,7 @@ defmodule Worker.Controller do
       Util.JSONLog.update(topic, logs)
     end
     Agent.Events.remove_subscriber_events(topic, subscriber)
+    Agent.Subscriptions.reset_subscriber_cnt(topic, subscriber)
     Server.notify(subscriber, "successfully unsubscribe from topic #{topic}")
 
     {:noreply, state}

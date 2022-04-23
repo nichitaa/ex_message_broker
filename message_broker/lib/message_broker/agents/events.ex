@@ -14,7 +14,7 @@ defmodule Agent.Events do
       topic_subscribers,
       fn subscriber ->
         subscriber_events = events[Kernel.inspect(subscriber)]
-        subscriber_cnt = Agent.Subscriptions.get_subscriber_cnt(subscriber)
+        subscriber_cnt = Agent.Subscriptions.get_subscriber_cnt(subscriber, topic)
         # if no messages was send to subscriber or all send messages received an ack
         subscriber_cnt == 0
       end
@@ -33,7 +33,7 @@ defmodule Agent.Events do
           topic_subscribers,
           topic_events,
           fn subscriber, acc_logs ->
-            Agent.Subscriptions.update_subscriber_event_counter(subscriber, :increment)
+            Agent.Subscriptions.update_subscriber_event_counter(subscriber, topic, :increment)
             # new log event
             event_log = Util.JSONLog.event_to_log(event)
             Map.update(

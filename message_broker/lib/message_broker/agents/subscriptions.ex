@@ -52,33 +52,52 @@ defmodule Agent.Subscriptions do
     )
   end
 
-  def update_subscriber_event_counter(subscriber, operator) do
+  def update_subscriber_event_counter(subscriber, topic, operator) do
+    Agent.update(
+      __MODULE__,
+      fn state ->
+        subscriber_events_cnt =
+          Map.update(
+            state.subscriber_events_cnt,
+            Kernel.inspect(subscriber),
+            Map.put(%{}, topic, 1),
+            fn prev ->
+              case operator do
+                :increment -> Map.update(prev, topic, 1, fn nr -> nr + 1 end)
+                :decrement -> Map.update(prev, topic, 1, fn nr -> nr - 1 end)
+              end
+            end
+          )
+        %{state | subscriber_events_cnt: subscriber_events_cnt}
+      end
+    )
+  end
+
+  def get_subscriber_cnt(subscriber, topic) do
+    Agent.get(
+      __MODULE__,
+      fn state ->
+        cnt = Kernel.get_in(state.subscriber_events_cnt, [Kernel.inspect(subscriber), topic])
+        case cnt do
+          nil -> 0
+          _ -> cnt
+        end
+      end
+    )
+  end
+
+  def reset_subscriber_cnt(topic, subscriber) do
     Agent.update(
       __MODULE__,
       fn state ->
         %{
           state |
-          subscriber_events_cnt: Map.update(
+          subscriber_events_cnt: Kernel.put_in(
             state.subscriber_events_cnt,
-            Kernel.inspect(subscriber),
-            1,
-            fn prev ->
-              case operator do
-                :increment -> prev + 1
-                :decrement -> prev - 1
-              end
-            end
+            [Kernel.inspect(subscriber), topic],
+            0
           )
         }
-      end
-    )
-  end
-
-  def get_subscriber_cnt(subscriber) do
-    Agent.get(
-      __MODULE__,
-      fn state ->
-        Map.get(state.subscriber_events_cnt, Kernel.inspect(subscriber), 0)
       end
     )
   end
