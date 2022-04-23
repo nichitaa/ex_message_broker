@@ -4,7 +4,7 @@ defmodule WorkerPool do
   use GenServer
   require Logger
 
-  @wp_default_worker_no 5
+  @wp_default_worker_no 100
   @wp_start_delay 100
   @wp_terminate_delay 3000
 
@@ -27,6 +27,11 @@ defmodule WorkerPool do
   ## Client API
 
   def route(data) do
+    case data do
+      {:acknowledge, "tweets", subscriber, event_id, subscriptions} ->
+        Server.notify(subscriber, "ack command from WP API")
+      _ -> nil
+    end
     GenServer.cast(__MODULE__, {:route, data})
   end
 
@@ -44,6 +49,13 @@ defmodule WorkerPool do
   @impl true
   def handle_cast({:route, data}, state) do
     d(%{workers, index}) = state
+
+    case data do
+      {:acknowledge, "tweets", subscriber, event_id, subscriptions} ->
+        {:message_queue_len, len} = Process.info(self(), :message_queue_len)
+        Server.notify(subscriber, "ack command from WP :route endpoint len=#{inspect(len)}")
+      _ -> nil
+    end
 
     if length(workers) > 0 do
       Enum.at(workers, rem(index, length(workers)))
@@ -104,7 +116,7 @@ defmodule WorkerPool do
   def handle_cast({:autoscale, cnt}, state) do
     if(cnt > 0) do
 
-      expect_workers_no = div(cnt, 5) + 1
+      expect_workers_no = cnt + 1
       current_workers_no = length(state.workers)
       diff = expect_workers_no - current_workers_no
 

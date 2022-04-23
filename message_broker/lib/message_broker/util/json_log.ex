@@ -44,10 +44,18 @@ defmodule Util.JsonLog do
 
   @impl true
   def handle_call({:get, topic}, _from, state) do
+    {:message_queue_len, len} = Process.info(self(), :message_queue_len)
+    Logger.info("json :get mq_len=#{inspect(len)}")
+    start_time = :os.system_time(:milli_seconds)
+
     path = "#{@logs_dir}/#{topic}.json"
     response =
       with {:ok, body} <- File.read(path),
            {:ok, json} <- Poison.decode(body), do: {:ok, json}
+
+    end_time = :os.system_time(:milli_seconds)
+    execution_time = end_time - start_time
+    Logger.info("json :get exec_time=#{inspect(execution_time)}")
     {:reply, response, state}
   end
 
@@ -58,6 +66,8 @@ defmodule Util.JsonLog do
 
   @impl true
   def handle_cast({:update, topic, updated_logs}, state) do
+    {:message_queue_len, len} = Process.info(self(), :message_queue_len)
+    Logger.info("json :update mq_len=#{inspect(len)}")
     path = "#{@logs_dir}/#{topic}.json"
     File.write(path, Poison.encode!(updated_logs), [:binary])
     {:noreply, state}

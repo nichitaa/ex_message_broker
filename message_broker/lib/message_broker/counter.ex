@@ -4,7 +4,7 @@ defmodule Counter do
   require Logger
 
   @autoscaler_time_frame 1000
-  @enable_autoscaler true
+  @enable_autoscaler false
 
   def start_link(opts \\ []) do
     state = Map.put(%{}, :counter, 0)

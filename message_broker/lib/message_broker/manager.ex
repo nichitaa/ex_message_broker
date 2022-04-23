@@ -5,7 +5,7 @@ defmodule Manager do
   require Logger
 
   def start_link(opts \\ []) do
-    state = %{subscriptions: %{}}
+    state = %{}
     GenServer.start_link(__MODULE__, state, opts)
   end
 
@@ -24,6 +24,7 @@ defmodule Manager do
   end
 
   def acknowledge(topic, subscriber, event_id) do
+    Server.notify(subscriber, "received ack from manager API")
     GenServer.cast(__MODULE__, {:acknowledge, topic, subscriber, event_id})
   end
 
@@ -36,97 +37,41 @@ defmodule Manager do
 
   @impl true
   def handle_cast({:subscribe, topic, subscriber}, state) do
-    d(%{subscriptions}) = state
-
-    # check if topic exists
-    if Map.has_key?(subscriptions, topic) do
-
-      topic_subscribers = Map.get(subscriptions, topic)
-      case Enum.member?(topic_subscribers, subscriber) do
-        true ->
-          Server.notify(subscriber, "error: already subscribed for topic #{topic}")
-          {:noreply, state}
-        false ->
-          Server.notify(subscriber, "successfully subscribed to topic #{topic}")
-          {
-            :noreply,
-            %{
-              state |
-              subscriptions: Map.update(subscriptions, topic, [subscriber], fn prev -> [subscriber | prev] end)
-            }
-          }
-      end
-    else
-      Server.notify(subscriber, "successfully subscribed to a newly created topic #{topic}")
-      {
-        :noreply,
-        %{
-          state |
-          subscriptions: Map.put(state.subscriptions, topic, [subscriber])
-        }
-      }
-    end
+    SubscriptionsAgent.add_subscriber(topic, subscriber)
+    Server.notify(subscriber, "successfully subscribed to topic #{topic}")
+    {:noreply, state}
   end
 
   @impl true
   def handle_cast({:unsubscribe, topic, subscriber}, state) do
-    d(%{subscriptions}) = state
+    SubscriptionsAgent.remove_subscriber(topic, subscriber)
 
-    if Map.has_key?(subscriptions, topic) do
-
-      topic_subscribers = Map.get(subscriptions, topic)
-      case Enum.member?(topic_subscribers, subscriber) do
-        true ->
-          # remove subscriptions from state
-          topic_subscribers = Enum.reject(topic_subscribers, fn x -> x == subscriber end)
-          Server.notify(subscriber, "successfully unsubscribe from topic #{topic}")
-
-          # clean-up the logs message for this topic
-          {:ok, logs} = Util.JsonLog.get(topic)
-          subscriber_logs = logs[Kernel.inspect(subscriber)]
-          if subscriber_logs != nil and length(subscriber_logs) > 0 do
-            {_, logs} = Kernel.pop_in(logs, [Kernel.inspect(subscriber)])
-            # update message broker logs
-            Util.JsonLog.update(topic, logs)
-          end
-
-          {
-            :noreply,
-            %{state | subscriptions: Map.put(subscriptions, topic, topic_subscribers)}
-          }
-        false ->
-          Server.notify(subscriber, "error: you are not subscribed to topic #{topic}")
-          {:noreply, state}
-      end
-
-    else
-      Server.notify(subscriber, "error: topic #{topic} does not exist")
-      {:noreply, state}
+    # clean-up the logs message for this topic
+    {:ok, logs} = Util.JsonLog.get(topic)
+    subscriber_logs = logs[Kernel.inspect(subscriber)]
+    if subscriber_logs != nil and length(subscriber_logs) > 0 do
+      {_, logs} = Kernel.pop_in(logs, [Kernel.inspect(subscriber)])
+      # update message broker logs
+      Util.JsonLog.update(topic, logs)
     end
 
+    Server.notify(subscriber, "successfully unsubscribe from topic #{topic}")
+    {:noreply, state}
   end
 
   @impl true
   def handle_cast({:acknowledge, topic, subscriber, event_id}, state) do
-    d(%{subscriptions}) = state
-    WorkerPool.route({:acknowledge, topic, subscriber, event_id, subscriptions})
+    Server.notify(subscriber, "received ack from manager handle_cast")
+    WorkerPool.route({:acknowledge, topic, subscriber, event_id})
     {:noreply, state}
   end
 
   @impl true
   def handle_cast({:publish, topic, event}, state) do
-    d(%{subscriptions}) = state
+    SubscriptionsAgent.check_or_create_topic(topic)
 
-    # create new topic if does not exists
-    subscriptions =
-      if !Map.has_key?(subscriptions, topic) do
-        Map.put(subscriptions, topic, [])
-      else
-        subscriptions
-      end
-
-    WorkerPool.route({:publish, topic, event, subscriptions})
-    {:noreply, %{state | subscriptions: subscriptions}}
+    WorkerPool.route({:publish, topic, event})
+    {:noreply, state}
   end
 
 end

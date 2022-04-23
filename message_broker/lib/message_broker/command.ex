@@ -50,6 +50,7 @@ defmodule Command do
   end
 
   def run({:acknowledge, topic, id}, subscriber) do
+    Server.notify(subscriber, "received ack from command")
     Manager.acknowledge(topic, subscriber, id)
   end
 

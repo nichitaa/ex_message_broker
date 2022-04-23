@@ -22,7 +22,8 @@ defmodule MessageBroker.MixProject do
     [
       {:poison, "~> 3.1"},
       {:destructure, "~> 0.2.3"},
-      {:psq, "~> 0.1.0"}
+      {:psq, "~> 0.1.0"},
+      {:mutex, "~> 1.3"}
     ]
   end
 end

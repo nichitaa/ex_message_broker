@@ -18,6 +18,7 @@ defmodule MessageBroker do
     Logger.info("Starting MessageBroker")
 
     children = [
+      {SubscriptionsAgent, %{}},
       {Counter, name: Counter},
       {Manager, name: Manager},
       {Util.JsonLog, name: Util.JsonLog},
