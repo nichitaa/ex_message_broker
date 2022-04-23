@@ -1,4 +1,4 @@
-defmodule EventDto do
+defmodule DTO.Event do
   @moduledoc """
   Generic event DTO for all incoming messages from our producers
   """

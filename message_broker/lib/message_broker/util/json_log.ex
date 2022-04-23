@@ -1,4 +1,4 @@
-defmodule Util.JsonLog do
+defmodule Util.JSONLog do
   @logs_dir Application.fetch_env!(:message_broker, :logs_dir)
   @clean_log_file Application.fetch_env!(:message_broker, :clean_log_file)
 
@@ -7,14 +7,17 @@ defmodule Util.JsonLog do
   require Logger
 
   def start_link(opts \\ []) do
-    # Logger.info("util json log start_link opts=#{inspect(opts)}")
     GenServer.start_link(__MODULE__, %{}, opts)
   end
 
   @impl true
   def init(state) do
-    # Logger.info("util json log init")
     {:ok, state}
+  end
+
+  defp log_message_queue_len() do
+    {:message_queue_len, len} = Process.info(self(), :message_queue_len)
+    Logger.info("Util.JSONLog mq_len=#{inspect(len)}")
   end
 
   def clear_logs_on_startup() do
@@ -44,8 +47,7 @@ defmodule Util.JsonLog do
 
   @impl true
   def handle_call({:get, topic}, _from, state) do
-    {:message_queue_len, len} = Process.info(self(), :message_queue_len)
-    Logger.info("json :get mq_len=#{inspect(len)}")
+    # log_message_queue_len()
     start_time = :os.system_time(:milli_seconds)
 
     path = "#{@logs_dir}/#{topic}.json"
@@ -55,7 +57,7 @@ defmodule Util.JsonLog do
 
     end_time = :os.system_time(:milli_seconds)
     execution_time = end_time - start_time
-    Logger.info("json :get exec_time=#{inspect(execution_time)}")
+    # Logger.info("json :get exec_time=#{inspect(execution_time)}")
     {:reply, response, state}
   end
 
@@ -66,15 +68,14 @@ defmodule Util.JsonLog do
 
   @impl true
   def handle_cast({:update, topic, updated_logs}, state) do
-    {:message_queue_len, len} = Process.info(self(), :message_queue_len)
-    Logger.info("json :update mq_len=#{inspect(len)}")
+    # log_message_queue_len()
     path = "#{@logs_dir}/#{topic}.json"
     File.write(path, Poison.encode!(updated_logs), [:binary])
     {:noreply, state}
   end
 
   def event_to_log(event) do
-    case Poison.decode(event, as: %EventDto{}) do
+    case Poison.decode(event, as: %DTO.Event{}) do
       {:ok, dto} ->
         %{
           "id" => dto.id,
@@ -88,7 +89,7 @@ defmodule Util.JsonLog do
   end
 
   def event_to_msg(topic, event) do
-    case Poison.decode(event, as: %EventDto{}) do
+    case Poison.decode(event, as: %DTO.Event{}) do
       {:ok, dto} ->
         Poison.encode!(
           %{
@@ -104,23 +105,26 @@ defmodule Util.JsonLog do
   end
 
   def is_valid_event(event) do
-    case Poison.decode(event, as: %EventDto{}) do
+    case Poison.decode(event, as: %DTO.Event{}) do
       {:ok, dto} -> {:ok}
       _ -> {:err, "event is not of an accepted format"}
     end
   end
 
+  @doc """
+  Enumerable List to inverse Priority Queue (PSQ) - events with higher priority pops out firs
+  Using `:id` as queue item key, and `:priority` as event priority
+  """
   def list_to_pq(list) do
-    # inverse pq (higher priority pops out first)
-    # using event_id as queue item key
     pq = PSQ.new(fn x -> -x["priority"] end, &(&1["id"]))
-    pq = Enum.into(list, pq)
-    pq
+    Enum.into(list, pq)
   end
 
+  @doc """
+  Priority queue (PSQ) to enumerable List
+  """
   def pq_to_list(pq) do
-    list = Enum.to_list(pq)
-    list
+    Enum.to_list(pq)
   end
 
 end

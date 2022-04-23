@@ -1,4 +1,4 @@
-defmodule EventsAgent do
+defmodule Agent.Events do
   import Destructure
   require Logger
   use Agent
@@ -8,25 +8,22 @@ defmodule EventsAgent do
   end
 
   def get_subscribers_to_notify(topic) do
-    topic_subscribers = SubscriptionsAgent.get_topic_subscribers(topic)
+    topic_subscribers = Agent.Subscriptions.get_topic_subscribers(topic)
     events = Agent.get(__MODULE__, fn x -> Map.get(x, topic, %{}) end)
     subscribers_to_notify = Enum.filter(
       topic_subscribers,
       fn subscriber ->
         subscriber_events = events[Kernel.inspect(subscriber)]
-#        {:ok, subscriber_logs} = Util.JsonLog.get(topic)
-#        subscriber_logs = subscriber_logs[Kernel.inspect(subscriber)]
-
-        can_send = (subscriber_events == nil or Enum.count(subscriber_events) == 0)
-        # and (subscriber_logs == nil or length(subscriber_logs) == 0)
-        can_send
+        subscriber_cnt = Agent.Subscriptions.get_subscriber_cnt(subscriber)
+        # if no messages was send to subscriber or all send messages received an ack
+        subscriber_cnt == 0
       end
     )
     subscribers_to_notify
   end
 
   def publish_event(topic, event) do
-    topic_subscribers = SubscriptionsAgent.get_topic_subscribers(topic)
+    topic_subscribers = Agent.Subscriptions.get_topic_subscribers(topic)
     topic_events = Agent.get(__MODULE__, fn x -> Map.get(x, topic, %{}) end)
     Agent.update(
       __MODULE__,
@@ -36,14 +33,15 @@ defmodule EventsAgent do
           topic_subscribers,
           topic_events,
           fn subscriber, acc_logs ->
+            Agent.Subscriptions.update_subscriber_event_counter(subscriber, :increment)
             # new log event
-            event_log = Util.JsonLog.event_to_log(event)
+            event_log = Util.JSONLog.event_to_log(event)
             Map.update(
               acc_logs,
               # Port -> String (this is the log key)
               Kernel.inspect(subscriber),
               # default: a PQ of one event
-              Util.JsonLog.list_to_pq([event_log]),
+              Util.JSONLog.list_to_pq([event_log]),
               fn prev ->
                 # add to priority queue
                 PSQ.put(prev, event_log)
@@ -69,7 +67,7 @@ defmodule EventsAgent do
       {:ok, next_event}
     else
       # get from logs then
-      {:ok, topic_logs} = Util.JsonLog.get(topic)
+      {:ok, topic_logs} = Util.JSONLog.get(topic)
       subscriber_logs = topic_logs[subscriber]
       if subscriber_logs != nil and length(subscriber_logs) > 0 do
         {next_event, _} = List.pop_at(subscriber_logs, 0)
@@ -119,22 +117,26 @@ defmodule EventsAgent do
     Agent.get_and_update(__MODULE__, fn x -> {x, %{}} end)
   end
 
-  def stats() do
+  @doc """
+  For debug purposes, use it to see current state of all events
+  in current time interval (2sec)
+  """
+  def info() do
     Agent.get(
       __MODULE__,
       fn events ->
         topics = Map.keys(events)
-        Logger.info("topics=#{inspect(topics)}")
+        Logger.info("All topics for now=#{inspect(topics)}")
         Enum.each(
           topics,
           fn x ->
             subs = Map.keys(events[x])
-            Logger.info("topic=#{inspect(x)} subs=#{inspect(subs)}")
+            Logger.info("Topic=#{inspect(x)} Subscribers=#{inspect(subs)}")
             Enum.each(
               subs,
               fn s ->
-                len = length(events[x][s])
-                Logger.info("sub=#{inspect(s)} topic=#{inspect(x)} len=#{inspect(len)}")
+                len = Enum.count(events[x][s])
+                Logger.info("Topic=#{inspect(x)} Subscriber=#{inspect(s)} events_no=#{inspect(len)}")
               end
             )
           end

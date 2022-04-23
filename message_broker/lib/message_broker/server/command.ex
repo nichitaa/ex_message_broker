@@ -13,6 +13,7 @@ defmodule Command do
   ## Client API
 
   def parse(line) do
+    line = String.trim(line)
 
     parsed = String.trim(line, "\r\n")
              |> String.split(" ", parts: 3)
@@ -22,7 +23,7 @@ defmodule Command do
       [@publish_command, topic, event] -> {:ok, {:publish, topic, event}}
       [@subscribe_command, topic] -> {:ok, {:subscribe, topic}}
       [@unsubscribe_command, topic] -> {:ok, {:unsubscribe, topic}}
-      [@acknowledge_command, topic, id] -> {:ok, {:acknowledge, topic, id}}
+      [@acknowledge_command, topic, id] when Kernel.is_binary(id) == true -> {:ok, {:acknowledge, topic, id}}
       unknown -> {:ok, {:error_unknown_command, unknown}}
     end
 
@@ -32,26 +33,24 @@ defmodule Command do
 
   def run({:publish, topic, event}, publisher) do
     # check if the event is of the right format
-    case Util.JsonLog.is_valid_event(event) do
+    case Util.JSONLog.is_valid_event(event) do
       {:ok} ->
-        # Logger.info(":publish topic=#{topic} publisher=#{inspect(publisher)} event=#{inspect(event)}")
-        Counter.increment()
-        Manager.publish(topic, event)
+        App.Counter.increment()
+        App.Manager.publish(topic, event)
       {:err, reason} -> Logger.info("error: publisher send a bad event=#{inspect(event)}")
     end
   end
 
   def run({:subscribe, topic}, subscriber) do
-    Manager.subscribe(topic, subscriber)
+    App.Manager.subscribe(topic, subscriber)
   end
 
   def run({:unsubscribe, topic}, subscriber) do
-    Manager.unsubscribe(topic, subscriber)
+    App.Manager.unsubscribe(topic, subscriber)
   end
 
   def run({:acknowledge, topic, id}, subscriber) do
-    Server.notify(subscriber, "received ack from command")
-    Manager.acknowledge(topic, subscriber, id)
+    App.Manager.acknowledge(topic, subscriber, id)
   end
 
   def run({:error_unknown_command, command}, subscriber) do

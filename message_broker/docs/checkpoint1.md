@@ -21,7 +21,7 @@ can be easily changed):
 * `ack` (`ACKNOWLEDGE`)- notifies the `MessageBroker` about a successful delivered message from subscriber,
   usage: `ack topic event_id` (e.g.: `ack tweets 1`)
 
-Each received event for a `pub` command is expected to be of an [`EventDto`](../lib/message_broker/dtos/event.ex) format.  For each topic is created a log file with the topic name (e.g.: `tweets.json`), the `logs` directory is git-ignored. An example of how this a topic log file is structure is the [`logs.public.json`](../logs.public.json) file:
+Each received event for a `pub` command is expected to be of an [`DTO.Event`](../lib/message_broker/dtos/event.ex) format.  For each topic is created a log file with the topic name (e.g.: `tweets.json`), the `logs` directory is git-ignored. An example of how this a topic log file is structure is the [`logs.public.json`](../logs.public.json) file:
 
 ```json
 // tweets.json

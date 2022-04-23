@@ -1,4 +1,4 @@
-defmodule Manager do
+defmodule App.Manager do
 
   import Destructure
   use GenServer
@@ -24,7 +24,6 @@ defmodule Manager do
   end
 
   def acknowledge(topic, subscriber, event_id) do
-    Server.notify(subscriber, "received ack from manager API")
     GenServer.cast(__MODULE__, {:acknowledge, topic, subscriber, event_id})
   end
 
@@ -37,22 +36,22 @@ defmodule Manager do
 
   @impl true
   def handle_cast({:subscribe, topic, subscriber}, state) do
-    SubscriptionsAgent.add_subscriber(topic, subscriber)
+    Agent.Subscriptions.add_subscriber(topic, subscriber)
     Server.notify(subscriber, "successfully subscribed to topic #{topic}")
     {:noreply, state}
   end
 
   @impl true
   def handle_cast({:unsubscribe, topic, subscriber}, state) do
-    SubscriptionsAgent.remove_subscriber(topic, subscriber)
+    Agent.Subscriptions.remove_subscriber(topic, subscriber)
 
     # clean-up the logs message for this topic
-    {:ok, logs} = Util.JsonLog.get(topic)
+    {:ok, logs} = Util.JSONLog.get(topic)
     subscriber_logs = logs[Kernel.inspect(subscriber)]
     if subscriber_logs != nil and length(subscriber_logs) > 0 do
       {_, logs} = Kernel.pop_in(logs, [Kernel.inspect(subscriber)])
       # update message broker logs
-      Util.JsonLog.update(topic, logs)
+      Util.JSONLog.update(topic, logs)
     end
 
     Server.notify(subscriber, "successfully unsubscribe from topic #{topic}")
@@ -61,16 +60,15 @@ defmodule Manager do
 
   @impl true
   def handle_cast({:acknowledge, topic, subscriber, event_id}, state) do
-    Server.notify(subscriber, "received ack from manager handle_cast")
-    WorkerPool.route({:acknowledge, topic, subscriber, event_id})
+    Agent.Subscriptions.check_or_create_topic(topic)
+    App.WorkerPool.route({:acknowledge, topic, subscriber, event_id})
     {:noreply, state}
   end
 
   @impl true
   def handle_cast({:publish, topic, event}, state) do
-    SubscriptionsAgent.check_or_create_topic(topic)
-
-    WorkerPool.route({:publish, topic, event})
+    Agent.Subscriptions.check_or_create_topic(topic)
+    App.WorkerPool.route({:publish, topic, event})
     {:noreply, state}
   end
 

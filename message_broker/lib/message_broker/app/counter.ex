@@ -1,4 +1,4 @@
-defmodule Counter do
+defmodule App.Counter do
   import Destructure
   use GenServer
   require Logger
@@ -39,7 +39,7 @@ defmodule Counter do
   def handle_cast({:reset_counter}, state) do
     d(%{counter}) = state
     if (@enable_autoscaler == true) do
-      WorkerPool.autoscale(counter)
+      App.WorkerPool.autoscale(counter)
     end
     reset_counter_loop()
     {:noreply, %{state | counter: 0}}

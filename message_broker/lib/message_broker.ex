@@ -23,24 +23,28 @@ defmodule MessageBroker do
     Logger.info("Starting MessageBroker")
 
     children = [
-      {EventsBatcher, name: EventsBatcher},
-      {EventsAgent, %{}},
-      {SubscriptionsAgent, %{}},
-      {Counter, name: Counter},
-      {Manager, name: Manager},
-      {Util.JsonLog, name: Util.JsonLog},
+      {App.EventsBatcher, name: App.EventsBatcher},
+      {Agent.Events, %{}},
+      {Agent.Subscriptions, %{}},
+      {App.Counter, name: App.Counter},
+      {App.Manager, name: App.Manager},
+      {Util.JSONLog, name: Util.JSONLog},
       {
-        WorkerPool,
-        %{name: WorkerPool, worker: Controller, workerArgs: [], pool_supervisor_name: WorkerPoolDynamicSupervisor}
+        App.WorkerPool,
+        %{
+          name: App.WorkerPool,
+          worker: Worker.Controller,
+          workerArgs: [],
+          pool_supervisor_name: WorkerPoolDynamicSupervisor
+        }
       },
       {DynamicSupervisor, name: WorkerPoolDynamicSupervisor, strategy: :one_for_one},
-      # Server
       {Task.Supervisor, name: Server.TaskSupervisor},
       Supervisor.child_spec({Task, fn -> Server.accept(@port) end}, restart: :permanent)
     ]
     opts = [strategy: :one_for_one, name: RTP_SSE.Supervisor]
 
-    Util.JsonLog.clear_logs_on_startup()
+    Util.JSONLog.clear_logs_on_startup()
     Supervisor.start_link(children, opts)
   end
 
