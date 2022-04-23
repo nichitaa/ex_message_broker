@@ -22,8 +22,8 @@ config :rtp_sse,
        ue_flush_time: 3000, # flush time for user engagements
 
        # for debug better disable autoscaler and ignore panic messages
-       enable_autoscaler: false,
-       ignore_panic_message: true,
+       enable_autoscaler: true,
+       ignore_panic_message: false,
 
        autoscaler_time_frame: 1000,
 

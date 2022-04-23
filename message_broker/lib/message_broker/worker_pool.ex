@@ -4,7 +4,7 @@ defmodule WorkerPool do
   use GenServer
   require Logger
 
-  @wp_default_worker_no 100
+  @wp_default_worker_no 50
   @wp_start_delay 100
   @wp_terminate_delay 3000
 

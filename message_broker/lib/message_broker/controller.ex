@@ -17,118 +17,77 @@ defmodule Controller do
 
   @impl true
   def handle_cast({:work, command}, state) do
-    # Logger.info("worker command=#{inspect(command)}")
     GenServer.cast(self(), command)
     {:noreply, state}
   end
 
+  def send_next_event(topic, subscriber) do
+    case EventsAgent.get_subscriber_next_message(topic, subscriber) do
+      {:ok, next_event} ->
+        {:ok, encode_event} = Poison.encode(next_event)
+        msg = Util.JsonLog.event_to_msg(topic, encode_event)
+        Server.notify(subscriber, msg)
+      {:err, err_msg} ->
+        Server.notify(subscriber, err_msg)
+    end
+  end
+
   @impl true
   def handle_cast({:acknowledge, topic, subscriber, event_id}, state) do
-    Server.notify(subscriber, "just received ack ev_id=#{inspect(event_id)}")
+
+    Util.JsonLog.check_log_file(topic)
+    # Server.notify(subscriber, "just received ack ev_id=#{inspect(event_id)}")
     case SubscriptionsAgent.is_topic_subscriber(topic, subscriber) do
       true ->
-        {:ok, logs} = Util.JsonLog.get(topic)
-
-        # subscriber exists
-        subscriber_logs = logs[Kernel.inspect(subscriber)]
-
-        # check if there are messages in the corresponding topics list
-        if subscriber_logs != nil and length(subscriber_logs) > 0 do
-
-          subscriber_logs_pq = Util.JsonLog.list_to_pq(subscriber_logs)
-          # get by event id
-          ack_event = PSQ.get(subscriber_logs_pq, event_id)
-
-          if ack_event != nil do
-            subscriber_logs_pq = PSQ.delete(subscriber_logs_pq, event_id)
-            subscriber_logs = Util.JsonLog.pq_to_list(subscriber_logs_pq)
-            logs = Kernel.put_in(
-              logs,
-              [Kernel.inspect(subscriber)],
-              subscriber_logs
-            )
-
-            # update message broker logs
-            Util.JsonLog.update(topic, logs)
-
-            # send the next event to the subscriber, so it can send a new ack
-            if length(subscriber_logs) > 0 do
-              {next_log, _pq} = PSQ.pop(subscriber_logs_pq)
-              {:ok, next_event} = Poison.encode(next_log)
-              msg = Util.JsonLog.event_to_msg(topic, next_event)
-              Server.notify(subscriber, msg)
+        # try acknowledge from session (2sec buffer)
+        case EventsAgent.acknowledge_session_event(topic, subscriber, event_id) do
+          {:ok, success_msg} ->
+            Server.notify(subscriber, success_msg)
+            send_next_event(topic, subscriber)
+          {:err, err_msg} ->
+            # check logs then
+            # Server.notify(subscriber, err_msg)
+            {:ok, topic_logs} = Util.JsonLog.get(topic)
+            subscriber_logs = topic_logs[Kernel.inspect(subscriber)]
+            if subscriber_logs != nil and length(subscriber_logs) > 0 do
+              pq = Util.JsonLog.list_to_pq(subscriber_logs)
+              ack_log = PSQ.get(pq, event_id)
+              if ack_log != nil do
+                pq = PSQ.delete(pq, event_id)
+                Server.notify(subscriber, "acknowledged from logs ev_id=#{event_id}")
+                logs_list = Util.JsonLog.pq_to_list(pq)
+                updated_topic_logs = Map.put(topic_logs, Kernel.inspect(subscriber), logs_list)
+                Util.JsonLog.update(topic, updated_topic_logs)
+                send_next_event(topic, subscriber)
+              else
+                Server.notify(subscriber, "error: no event with id=#{event_id} in logs")
+              end
+            else
+              Server.notify(subscriber, "error: no subscriber logs")
             end
-
-          else
-            Server.notify(subscriber, "error: event with id #{event_id} does not exists")
-          end
         end
       false ->
-        Server.notify(
-          subscriber,
-          "error: you are not subscribed to topic #{topic} and therefor can not send acknowledge messages\r\n"
-        )
+        Server.notify(subscriber, "error: not a topic #{topic} subscriber")
     end
 
     {:noreply, state}
+
   end
 
   @impl true
   def handle_cast({:publish, topic, event}, state) do
-
-    # Logger.info("controller topic=#{topic}, event=#{inspect(event)}, subscriptions=#{inspect(subscriptions)}")
-    # check topic log file
     Util.JsonLog.check_log_file(topic)
 
-    topic_subscribers = SubscriptionsAgent.get_topic_subscribers(topic)
-
-
-    if length(topic_subscribers) > 0 do
-
-      # get all message broker logs
-      {:ok, logs} = Util.JsonLog.get(topic)
-      # Logger.info("controller logs=#{inspect(logs)}")
-
-      # accumulate logs to update
-      logs = Enum.reduce(
-        # iterate thru this topic subscribers
-        topic_subscribers,
-        logs,
-        fn subscriber, acc_logs ->
-
-          # send the message to the subscriber only if previous message have been acknowledged
-          sub_logs_for_topic = logs[Kernel.inspect(subscriber)]
-          if sub_logs_for_topic == nil or length(sub_logs_for_topic) == 0 do
-            msg = Util.JsonLog.event_to_msg(topic, event)
-            Server.notify(subscriber, msg)
-          end
-
-          # new log event
-          event_log = Util.JsonLog.event_to_log(event)
-
-          # update message broker logs
-          Map.update(
-            acc_logs,
-            # convert subscriber Port to String (this is the log key)
-            Kernel.inspect(subscriber),
-            # default: [event_log]
-            [event_log],
-            # in case there exists previous logs for this subscriber, just append to the topics logs list
-            fn prev ->
-              # priority queue
-              pq = Util.JsonLog.list_to_pq(prev)
-              pq = PSQ.put(pq, event_log)
-              list = Util.JsonLog.pq_to_list(pq)
-              list
-            end
-          )
-        end
-      )
-
-      # update message broker logs
-      Util.JsonLog.update(topic, logs)
-    end
-
+    subscribers = EventsAgent.get_subscribers_to_notify(topic)
+    # Logger.info("subs to publish: #{inspect(subscribers)}")
+    Enum.map(
+      subscribers,
+      fn subscriber ->
+        msg = Util.JsonLog.event_to_msg(topic, event)
+        Server.notify(subscriber, msg)
+      end
+    )
+    EventsAgent.publish_event(topic, event)
     {:noreply, state}
   end
 

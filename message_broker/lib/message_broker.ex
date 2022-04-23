@@ -6,6 +6,11 @@ defmodule MessageBroker do
   pub tweets {"id":"2", "priority": 4, "msg":"tweet 2"}
   pub tweets {"id":"3", "priority": 2, "msg":"tweet 3"}
   pub tweets {"id":"4", "priority": 5, "msg":"tweet 4"}
+
+  pub users {"id":"1", "priority": 3, "msg":"users 1"}
+  pub users {"id":"2", "priority": 4, "msg":"users 2"}
+  pub users {"id":"3", "priority": 2, "msg":"users 3"}
+  pub users {"id":"4", "priority": 5, "msg":"users 4"}
   """
 
   use Application
@@ -18,6 +23,8 @@ defmodule MessageBroker do
     Logger.info("Starting MessageBroker")
 
     children = [
+      {EventsBatcher, name: EventsBatcher},
+      {EventsAgent, %{}},
       {SubscriptionsAgent, %{}},
       {Counter, name: Counter},
       {Manager, name: Manager},
