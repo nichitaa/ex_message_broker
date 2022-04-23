@@ -78,6 +78,29 @@ defmodule Agent.Events do
     end
   end
 
+  def remove_subscriber_events(topic, subscriber) do
+    subscriber = Kernel.inspect(subscriber)
+    topic_events = Agent.get(
+      __MODULE__,
+      fn all_events ->
+        Map.get(all_events, topic, %{})
+      end
+    )
+
+    updated_topic_events = Map.delete(topic_events, subscriber)
+    Agent.update(
+      __MODULE__,
+      fn all_events ->
+        Map.put(
+          all_events,
+          topic,
+          updated_topic_events
+        )
+      end
+    )
+
+  end
+
 
   def acknowledge_session_event(topic, subscriber, event_id) do
     subscriber = Kernel.inspect(subscriber)

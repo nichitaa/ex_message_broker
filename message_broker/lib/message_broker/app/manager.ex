@@ -53,7 +53,7 @@ defmodule App.Manager do
       # update message broker logs
       Util.JSONLog.update(topic, logs)
     end
-
+    Agent.Events.remove_subscriber_events(topic, subscriber)
     Server.notify(subscriber, "successfully unsubscribe from topic #{topic}")
     {:noreply, state}
   end
