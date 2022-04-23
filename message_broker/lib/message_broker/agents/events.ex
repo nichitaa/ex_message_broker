@@ -3,8 +3,8 @@ defmodule Agent.Events do
   require Logger
   use Agent
 
-  def start_link(initial_value) do
-    Agent.start_link(fn -> initial_value end, name: __MODULE__)
+  def start_link(opts \\ []) do
+    Agent.start_link(fn -> %{} end, opts)
   end
 
   def get_subscribers_to_notify(topic) do

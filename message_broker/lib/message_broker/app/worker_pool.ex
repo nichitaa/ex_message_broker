@@ -4,9 +4,11 @@ defmodule App.WorkerPool do
   use GenServer
   require Logger
 
-  @wp_default_worker_no 50
-  @wp_start_delay 100
-  @wp_terminate_delay 3000
+  @wp_default_worker_no Application.fetch_env!(:message_broker, :wp_default_worker_no)
+  @wp_start_delay Application.fetch_env!(:message_broker, :wp_start_delay)
+  @wp_terminate_delay Application.fetch_env!(:message_broker, :wp_terminate_delay)
+  @wp_autoscale_proportion Application.fetch_env!(:message_broker, :wp_autoscale_proportion)
+  @enable_autoscaler Application.fetch_env!(:message_broker, :enable_autoscaler)
 
   def start_link(args) do
     d(%{worker, workerArgs, name, pool_supervisor_name}) = args
@@ -31,7 +33,9 @@ defmodule App.WorkerPool do
   end
 
   def autoscale(cnt) do
-    GenServer.cast(__MODULE__, {:autoscale, cnt})
+    if @enable_autoscaler do
+      GenServer.cast(__MODULE__, {:autoscale, cnt})
+    end
   end
 
   ## Callbacks
@@ -103,7 +107,7 @@ defmodule App.WorkerPool do
   def handle_cast({:autoscale, cnt}, state) do
     if(cnt > 0) do
 
-      expect_workers_no = cnt + 1
+      expect_workers_no = div(cnt, @wp_autoscale_proportion) + 1
       current_workers_no = length(state.workers)
       diff = expect_workers_no - current_workers_no
 

@@ -4,7 +4,7 @@ defmodule App.EventsBatcher do
   use GenServer
   require Logger
 
-  @batcher_flush_time 2000
+  @batcher_flush_time Application.fetch_env!(:message_broker, :batcher_flush_time)
 
   def start_link(opts \\ []) do
     state = d(%{timer: nil})

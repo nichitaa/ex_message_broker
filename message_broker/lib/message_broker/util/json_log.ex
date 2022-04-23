@@ -1,6 +1,8 @@
 defmodule Util.JSONLog do
+
   @logs_dir Application.fetch_env!(:message_broker, :logs_dir)
   @clean_log_file Application.fetch_env!(:message_broker, :clean_log_file)
+  @debug_io_time Application.fetch_env!(:message_broker, :debug_io_time)
 
   import Destructure
   use GenServer
@@ -15,63 +17,21 @@ defmodule Util.JSONLog do
     {:ok, state}
   end
 
+  ## Privates
+
   defp log_message_queue_len() do
     {:message_queue_len, len} = Process.info(self(), :message_queue_len)
-    Logger.info("Util.JSONLog mq_len=#{inspect(len)}")
+    Logger.info("JSON-logs mq_len=#{inspect(len)}")
   end
 
-  def clear_logs_on_startup() do
-    if @clean_log_file do
-      File.rm_rf(@logs_dir)
-    end
-  end
-
-  def check_log_file(topic) do
-    path = "#{@logs_dir}/#{topic}.json"
-    exists = File.exists?(path)
-    # create a json log file
-    if !exists do
-      File.mkdir_p!(Path.dirname(path))
-      {:ok, file} = File.open(path, [:write])
-      file
-      |> :file.position(:bof)
-      |> :file.truncate()
-      IO.binwrite(file, "{}")
-      File.close(file)
-    end
-  end
+  ## Client API
 
   def get(topic) do
     GenServer.call(__MODULE__, {:get, topic})
   end
 
-  @impl true
-  def handle_call({:get, topic}, _from, state) do
-    # log_message_queue_len()
-    start_time = :os.system_time(:milli_seconds)
-
-    path = "#{@logs_dir}/#{topic}.json"
-    response =
-      with {:ok, body} <- File.read(path),
-           {:ok, json} <- Poison.decode(body), do: {:ok, json}
-
-    end_time = :os.system_time(:milli_seconds)
-    execution_time = end_time - start_time
-    # Logger.info("json :get exec_time=#{inspect(execution_time)}")
-    {:reply, response, state}
-  end
-
-
   def update(topic, updated_logs) do
     GenServer.cast(__MODULE__, {:update, topic, updated_logs})
-  end
-
-  @impl true
-  def handle_cast({:update, topic, updated_logs}, state) do
-    # log_message_queue_len()
-    path = "#{@logs_dir}/#{topic}.json"
-    File.write(path, Poison.encode!(updated_logs), [:binary])
-    {:noreply, state}
   end
 
   def event_to_log(event) do
@@ -125,6 +85,56 @@ defmodule Util.JSONLog do
   """
   def pq_to_list(pq) do
     Enum.to_list(pq)
+  end
+
+  def clear_logs_on_startup() do
+    if @clean_log_file do
+      File.rm_rf(@logs_dir)
+    end
+  end
+
+  def check_log_file(topic) do
+    path = "#{@logs_dir}/#{topic}.json"
+    exists = File.exists?(path)
+    # create a json log file
+    if !exists do
+      File.mkdir_p!(Path.dirname(path))
+      {:ok, file} = File.open(path, [:write])
+      file
+      |> :file.position(:bof)
+      |> :file.truncate()
+      IO.binwrite(file, "{}")
+      File.close(file)
+    end
+  end
+
+  ## Callbacks
+
+  @impl true
+  def handle_call({:get, topic}, _from, state) do
+    # log_message_queue_len()
+    start_time = :os.system_time(:milli_seconds)
+
+    path = "#{@logs_dir}/#{topic}.json"
+    response =
+      with {:ok, body} <- File.read(path),
+           {:ok, json} <- Poison.decode(body), do: {:ok, json}
+
+    end_time = :os.system_time(:milli_seconds)
+    execution_time = end_time - start_time
+
+    if @debug_io_time do
+      Logger.info("JSON-logs File.read time=#{inspect(execution_time)}")
+    end
+    {:reply, response, state}
+  end
+
+  @impl true
+  def handle_cast({:update, topic, updated_logs}, state) do
+    # log_message_queue_len()
+    path = "#{@logs_dir}/#{topic}.json"
+    File.write(path, Poison.encode!(updated_logs), [:binary])
+    {:noreply, state}
   end
 
 end

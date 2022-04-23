@@ -3,12 +3,12 @@ defmodule Agent.Subscriptions do
   require Logger
   use Agent
 
-  def start_link(initial_value) do
+  def start_link(opts) do
     initial_value = %{
       subscriptions: %{},
       subscriber_events_cnt: %{}
     }
-    Agent.start_link(fn -> initial_value end, name: __MODULE__)
+    Agent.start_link(fn -> initial_value end, opts)
   end
 
   def add_subscriber(topic, subscriber) do

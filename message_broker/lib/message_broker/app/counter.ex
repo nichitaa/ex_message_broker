@@ -3,8 +3,8 @@ defmodule App.Counter do
   use GenServer
   require Logger
 
-  @autoscaler_time_frame 1000
-  @enable_autoscaler false
+  @autoscaler_time_frame Application.fetch_env!(:message_broker, :autoscaler_time_frame)
+  @enable_autoscaler Application.fetch_env!(:message_broker, :enable_autoscaler)
 
   def start_link(opts \\ []) do
     state = Map.put(%{}, :counter, 0)
