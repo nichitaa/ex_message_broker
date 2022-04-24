@@ -25,7 +25,8 @@ config :message_broker,
 
        # logs config
        logs_dir: "logs", # directory
-       clean_logs_on_startup: true, # does what it says, in dev mode I don't need them
+       clean_logs_on_startup: false, # does what it says, in dev mode I don't need them
+       reset_previous_topic_subscriber: true, # after a broker restart, the previous subscriptions are recreated
 
        # some topics for the lab2 (producer)
        tweets_topic: "tweets",
