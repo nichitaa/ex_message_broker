@@ -1,7 +1,7 @@
 defmodule Util.JSONLog do
 
   @logs_dir Application.fetch_env!(:message_broker, :logs_dir)
-  @clean_log_file Application.fetch_env!(:message_broker, :clean_log_file)
+  @clean_logs_on_startup Application.fetch_env!(:message_broker, :clean_logs_on_startup)
   @debug_io_time Application.fetch_env!(:message_broker, :debug_io_time)
 
   import Destructure
@@ -88,7 +88,7 @@ defmodule Util.JSONLog do
   end
 
   def clear_logs_on_startup() do
-    if @clean_log_file do
+    if @clean_logs_on_startup do
       File.rm_rf(@logs_dir)
     end
   end

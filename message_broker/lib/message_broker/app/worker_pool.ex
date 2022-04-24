@@ -23,12 +23,20 @@ defmodule App.WorkerPool do
         workerArgs: workerArgs
       }
     )
+
+    # start counter
+    {ok, cntPID} = DynamicSupervisor.start_child(
+      pool_supervisor_name,
+      {App.Counter, [name: App.Counter]}
+    )
+
     GenServer.start_link(__MODULE__, state, [name: name])
   end
 
   ## Client API
 
   def route(data) do
+    App.Counter.increment()
     GenServer.cast(__MODULE__, {:route, data})
   end
 

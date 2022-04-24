@@ -16,7 +16,6 @@ config :message_broker,
 
        tweet_producer_host: 'localhost', # in binary, as expected by :gen_tcp
        tweet_producer_port: 8080,
-       clean_log_file: true, # clean log file on application startup
 
        # commands
        publish_command: "pub", # PUBLISH
@@ -24,7 +23,9 @@ config :message_broker,
        unsubscribe_command: "unsub", # UNSUBSCRIBE
        acknowledge_command: "ack", # ACKNOWLEDGE
 
-       logs_dir: "logs", # logs directory
+       # logs config
+       logs_dir: "logs", # directory
+       clean_logs_on_startup: true, # does what it says, in dev mode I don't need them
 
        # some topics for the lab2 (producer)
        tweets_topic: "tweets",

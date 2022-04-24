@@ -35,7 +35,6 @@ defmodule Command do
     # check if the event is of the right format
     case Util.JSONLog.is_valid_event(event) do
       {:ok} ->
-        App.Counter.increment()
         App.Manager.publish(topic, event)
       {:err, reason} -> Logger.info("error: publisher send a bad event=#{inspect(event)}")
     end

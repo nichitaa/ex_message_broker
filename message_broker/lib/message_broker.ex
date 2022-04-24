@@ -23,15 +23,10 @@ defmodule MessageBroker do
     Logger.info("Starting MessageBroker")
 
     children = [
-      # Agents (state)
-      {Agent.Subscriptions, name: Agent.Subscriptions},
-      {Agent.Events, name: Agent.Events},
-      # Core
-      {App.EventsBatcher, name: App.EventsBatcher},
-      {App.Manager, name: App.Manager},
-      # Utility
-      {Util.JSONLog, name: Util.JSONLog},
-      # Workers Pool
+      # Worker Pool
+      # Supervisor
+      {DynamicSupervisor, name: WorkerPoolDynamicSupervisor, strategy: :one_for_one},
+      # Actual WP config
       {
         App.WorkerPool,
         %{
@@ -41,9 +36,14 @@ defmodule MessageBroker do
           pool_supervisor_name: WorkerPoolDynamicSupervisor
         }
       },
-      {App.Counter, name: App.Counter},
-      # WP Supervisor
-      {DynamicSupervisor, name: WorkerPoolDynamicSupervisor, strategy: :one_for_one},
+      # Agents (state)
+      {Agent.Subscriptions, name: Agent.Subscriptions},
+      {Agent.Events, name: Agent.Events},
+      # Core
+      {App.EventsBatcher, name: App.EventsBatcher},
+      {App.Manager, name: App.Manager},
+      # Utility
+      {Util.JSONLog, name: Util.JSONLog},
       # Server
       {Task.Supervisor, name: Server.TaskSupervisor},
       Supervisor.child_spec({Task, fn -> Server.accept(@port) end}, restart: :permanent)
