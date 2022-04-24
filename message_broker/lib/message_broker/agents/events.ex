@@ -7,21 +7,6 @@ defmodule Agent.Events do
     Agent.start_link(fn -> %{} end, opts)
   end
 
-  def get_subscribers_to_notify(topic) do
-    topic_subscribers = Agent.Subscriptions.get_topic_subscribers(topic)
-    events = Agent.get(__MODULE__, fn x -> Map.get(x, topic, %{}) end)
-    subscribers_to_notify = Enum.filter(
-      topic_subscribers,
-      fn subscriber ->
-        subscriber_events = events[Kernel.inspect(subscriber)]
-        subscriber_cnt = Agent.Subscriptions.get_subscriber_cnt(subscriber, topic)
-        # if no messages was send to subscriber or all send messages received an ack
-        subscriber_cnt == 0
-      end
-    )
-    subscribers_to_notify
-  end
-
   def publish_event(topic, event) do
     topic_subscribers = Agent.Subscriptions.get_topic_subscribers(topic)
     topic_events = Agent.get(__MODULE__, fn x -> Map.get(x, topic, %{}) end)

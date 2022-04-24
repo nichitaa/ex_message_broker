@@ -73,6 +73,19 @@ defmodule Agent.Subscriptions do
     )
   end
 
+  def get_subscribers_to_notify(topic) do
+    topic_subscribers = Agent.Subscriptions.get_topic_subscribers(topic)
+    subscribers_to_notify = Enum.filter(
+      topic_subscribers,
+      fn subscriber ->
+        subscriber_cnt = Agent.Subscriptions.get_subscriber_cnt(subscriber, topic)
+        # if no messages was send to subscriber or all send messages received an ack
+        subscriber_cnt == 0
+      end
+    )
+    subscribers_to_notify
+  end
+
   def get_subscriber_cnt(subscriber, topic) do
     Agent.get(
       __MODULE__,

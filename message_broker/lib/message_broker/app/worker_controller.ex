@@ -106,7 +106,7 @@ defmodule Worker.Controller do
   def handle_cast({:publish, topic, event}, state) do
     Util.JSONLog.check_log_file(topic)
     # get all subscriber that can be notified (have empty ack queue) and send them the event
-    subscribers = Agent.Events.get_subscribers_to_notify(topic)
+    subscribers = Agent.Subscriptions.get_subscribers_to_notify(topic)
     Enum.map(
       subscribers,
       fn subscriber ->
