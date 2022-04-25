@@ -1,23 +1,27 @@
 version: "3.6"
 services:
 
-  # Producer (working with sse_api)
-  rtp_sse:
-    container_name: rtp_sse
-    build:
-      context: ./rtp_sse
-      dockerfile: Dockerfile
+  # SSE Tweets Stream
+  sse_api:
+    image: alexburlacu/rtp-server:faf18x
+    container_name: sse_api
     ports:
-      - 8080:8080
+      - 4000:4000
 
-  # ChangeStream (change data capture service)
-  change_stream:
-    container_name: change_stream
-    build:
-      context: ./change_stream
-      dockerfile: Dockerfile
+  # MongoDB (a replication set node instance)
+  mongodb_service:
+    image: mongo
+    container_name: mongodb_service
+    hostname: mongodb_service
     ports:
-      - 8001:8001
+      - 27017:27017
+    restart: always
+    # for initiating replication set (named rs0)
+    healthcheck:
+      test: test $$(echo "rs.initiate({_id:'rs0',members:[{_id:0,host:\"mongodb_service:27017\"}]}).ok || rs.status().ok" | mongo --port 27017 --quiet) -eq 1
+      interval: 10s
+      start_period: 30s
+    command: [ "--replSet", "rs0", "--bind_ip_all", "--port", "27017" ]
 
   # Message Broker
   message_broker:
@@ -27,19 +31,26 @@ services:
       dockerfile: Dockerfile
     ports:
       - 8000:8000
-    restart: always
-    entrypoint: [ "/usr/bin/mongod", "--bind_ip_all", "--replSet", "rs0" ]
 
-  # MongoDB
-  mongodb_service:
-    image: mongo
-    container_name: mongo_service
+  # Producer (working with sse_api)
+  rtp_sse:
+    container_name: rtp_sse
+    build:
+      context: ./rtp_sse
+      dockerfile: Dockerfile
     ports:
-      - 27017:27017
+      - 8080:8080
+    depends_on:
+      - mongodb_service
 
-  # SSE Tweets Stream
-  sse_api:
-    image: alexburlacu/rtp-server:faf18x
-    container_name: sse_api
+  # ChangeStream (change data capture service)
+  change_stream:
+    container_name: change_stream
+    build:
+      context: ./change_stream
+      dockerfile: Dockerfile
     ports:
-      - 4000:4000
+      - 8001:8001
+    depends_on:
+      - message_broker
+      - mongodb_service

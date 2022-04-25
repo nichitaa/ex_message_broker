@@ -35,7 +35,7 @@ config :rtp_sse,
 
        hashtags_flush_time: 3000, # save hashtags to JSON every 3 sec
 
-       mb_host: 'localhost', # Message Broker host, in binary, as expected by :gen_tcp
+       mb_host: 'localhost', # Message Broker host, in binary, as expected by :gen_tcp, use message_broker with docker
        mb_port: 8000,
        mb_publish_command: "pub", # PUBLISH
        # topic for this producer app
