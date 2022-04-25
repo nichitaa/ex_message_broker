@@ -36,10 +36,6 @@ defmodule Worker.Logger do
         # send the tweet message to client terminal
         :gen_tcp.send(socket, message)
 
-        # publish `tweet` and `users` to the message broker
-        :gen_tcp.send(message_broker, Utils.to_tweet_topic_event(parsed))
-        :gen_tcp.send(message_broker, Utils.to_user_topic_event(parsed))
-
         # send the tweet to the Sentiments & Engagement Pool of workers
         WorkerPool.route(engagementWorkerPoolPID, parsed)
         WorkerPool.route(sentimentWorkerPoolPID, parsed)
