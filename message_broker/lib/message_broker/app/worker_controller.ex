@@ -107,6 +107,9 @@ defmodule Worker.Controller do
     Util.JSONLog.check_log_file(topic)
     # get all subscriber that can be notified (have empty ack queue) and send them the event
     subscribers = Agent.Subscriptions.get_subscribers_to_notify(topic)
+    # update state for current session persistent events
+    Agent.Events.publish_event(topic, event)
+    # notify subscribers
     Enum.map(
       subscribers,
       fn subscriber ->
@@ -114,8 +117,6 @@ defmodule Worker.Controller do
         Server.notify(subscriber, msg)
       end
     )
-    # make update in state for persistent events
-    Agent.Events.publish_event(topic, event)
     {:noreply, state}
   end
 

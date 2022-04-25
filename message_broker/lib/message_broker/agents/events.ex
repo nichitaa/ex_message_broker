@@ -9,6 +9,15 @@ defmodule Agent.Events do
 
   def publish_event(topic, event) do
     topic_subscribers = Agent.Subscriptions.get_topic_subscribers(topic)
+
+    # update topic subscribers counter as fast as possible
+    topic_subscribers
+    |> Enum.each(
+         fn subscriber ->
+           Agent.Subscriptions.update_subscriber_event_counter(subscriber, topic, :increment)
+         end
+       )
+
     topic_events = Agent.get(__MODULE__, fn x -> Map.get(x, topic, %{}) end)
     Agent.update(
       __MODULE__,
@@ -18,7 +27,6 @@ defmodule Agent.Events do
           topic_subscribers,
           topic_events,
           fn subscriber, acc_logs ->
-            Agent.Subscriptions.update_subscriber_event_counter(subscriber, topic, :increment)
             # new log event
             event_log = Util.JSONLog.event_to_log(event)
             Map.update(
