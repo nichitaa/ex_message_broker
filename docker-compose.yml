@@ -10,6 +10,15 @@ services:
     ports:
       - 8080:8080
 
+  # ChangeStream (change data capture service)
+  change_stream:
+    container_name: change_stream
+    build:
+      context: ./change_stream
+      dockerfile: Dockerfile
+    ports:
+      - 8001:8001
+
   # Message Broker
   message_broker:
     container_name: message_broker
@@ -18,6 +27,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - 8000:8000
+    restart: always
+    entrypoint: [ "/usr/bin/mongod", "--bind_ip_all", "--replSet", "rs0" ]
 
   # MongoDB
   mongodb_service:
