@@ -3,8 +3,6 @@ defmodule Command do
   import Destructure
   require Logger
 
-  @tweet_producer_host Application.fetch_env!(:message_broker, :tweet_producer_host)
-  @tweet_producer_port Application.fetch_env!(:message_broker, :tweet_producer_port)
   @publish_command Application.fetch_env!(:message_broker, :publish_command)
   @subscribe_command Application.fetch_env!(:message_broker, :subscribe_command)
   @acknowledge_command Application.fetch_env!(:message_broker, :acknowledge_command)

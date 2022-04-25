@@ -14,9 +14,6 @@ config :message_broker,
        # for persistent messages (save published events to logs)
        batcher_flush_time: 2000, # 2 sec
 
-       tweet_producer_host: 'localhost', # in binary, as expected by :gen_tcp
-       tweet_producer_port: 8080,
-
        # commands
        publish_command: "pub", # PUBLISH
        subscribe_command: "sub", # SUBSCRIBE
