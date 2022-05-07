@@ -54,3 +54,16 @@ services:
     depends_on:
       - message_broker
       - mongodb_service
+
+  # Subscriber (Test subscribers for an MB stress test)
+  subscriber:
+    container_name: subscriber
+    build:
+      context: ./subscriber
+      dockerfile: Dockerfile
+    ports:
+      - 9000:9000
+    depends_on:
+      - message_broker
+      - mongodb_service
+      - change_stream
