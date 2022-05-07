@@ -36,10 +36,11 @@ defmodule Worker.Controller do
         Agent.Subscriptions.update_subscriber_event_counter(subscriber, topic, :decrement)
         send_next_event(topic, subscriber)
       else
-        Server.notify(subscriber, "error: no event with id=#{event_id} in logs")
+        # Agent.Subscriptions.update_subscriber_event_counter(subscriber, topic, :decrement)
+        Server.notify(subscriber, "no_event_error: #{event_id}")
       end
     else
-      Server.notify(subscriber, "error: no subscriber logs")
+      Server.notify(subscriber, "no_event_error: #{event_id}")
     end
   end
 
