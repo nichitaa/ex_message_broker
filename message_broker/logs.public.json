@@ -1,0 +1,54 @@
+{
+  "subscriber": {
+    "topic-1": [
+      {
+        "timestamp": 1650054011933,
+        "priority": 5,
+        "msg": "msg",
+        "id": "1"
+      },
+      {
+        "timestamp": 1650054144283,
+        "priority": 4,
+        "msg": "msg",
+        "id": "2"
+      }
+    ],
+    "topic-2": [
+      {
+        "timestamp": 1650054011933,
+        "priority": 2,
+        "msg": "msg",
+        "id": "1"
+      },
+      {
+        "timestamp": 1650054144283,
+        "priority": 1,
+        "msg": "msg",
+        "id": "2"
+      }
+    ]
+  },
+  "#Port<0.5>": {
+    "tweets": [
+      {
+        "timestamp": 1650213989355,
+        "priority": 5,
+        "msg": "tweet 4",
+        "id": "4"
+      },
+      {
+        "timestamp": 1650213985409,
+        "priority": 4,
+        "msg": "tweet 2",
+        "id": "2"
+      },
+      {
+        "timestamp": 1650213980572,
+        "priority": 3,
+        "msg": "tweet 1",
+        "id": "1"
+      }
+    ]
+  }
+}
