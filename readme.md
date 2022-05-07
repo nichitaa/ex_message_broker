@@ -103,4 +103,4 @@ mb_host: 'message_broker'
 
 Obviously, there is much more to the project itself, but I'm sure you can
 
-![figure-it-out](C:\4. Univer\RTP\Laboratory works\work\rtp_sse\message_broker\docs\images\figure-it-out.gif)
+![figure-it-out](./message_broker/docs/images/figure-it-out.gif)
